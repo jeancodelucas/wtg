@@ -33,6 +33,7 @@ public class UserService {
         user.setBirthday(userRegistrationDto.getBirthday());
         user.setPhone(userRegistrationDto.getPhone());
         user.setToken(userRegistrationDto.getToken());
+        user.setFirstName(userRegistrationDto.getFirstName());
 
         Account account = new Account();
         account.setUserName(userRegistrationDto.getUserName());

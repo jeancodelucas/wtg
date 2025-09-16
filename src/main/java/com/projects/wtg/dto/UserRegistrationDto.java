@@ -12,6 +12,7 @@ public class UserRegistrationDto {
     private LocalDate birthday;
     private String phone;
     private String token;
+    private String firstName;
 
     private String userName;
     private String email;
