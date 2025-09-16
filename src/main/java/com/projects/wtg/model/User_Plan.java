@@ -13,19 +13,19 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User_PlanModel {
+public class User_Plan {
     @EmbeddedId
     private UserPlanId id;
 
     @ManyToOne
     @MapsId("userId")
     @JoinColumn(name = "user_id")
-    private UserModel user;
+    private User user;
 
     @ManyToOne
     @MapsId("planId")
     @JoinColumn(name = "plan_id")
-    private PlanModel plain;
+    private Plan plain;
 
     private LocalDateTime started_at;
     private LocalDateTime finish_at;

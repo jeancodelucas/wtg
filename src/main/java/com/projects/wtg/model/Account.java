@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AccountModel {
+public class Account {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -25,7 +25,6 @@ public class AccountModel {
     private LocalDateTime lastLogin;
 
     // Relacionamento 1-1 com User
-    @OneToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id", unique = true)
-    private UserModel user;
+    @OneToOne(mappedBy = "account") // <-- lado inverso
+    private User user;
 }

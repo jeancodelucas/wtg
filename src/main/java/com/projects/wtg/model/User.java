@@ -11,7 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserModel {
+public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,10 +26,11 @@ public class UserModel {
     private LocalDateTime updatedAt;
 
     // Relacionamento 1-1 com Account
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
-    private AccountModel account;
+    @OneToOne(cascade = CascadeType.ALL) // permite salvar a conta junto
+    @JoinColumn(name = "account_id", referencedColumnName = "id", unique = true)
+    private Account account;
 
     // Relacionamento de um para muitos com promotion
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PromotionModel> promotions;
+    private List<Promotion> promotions;
 }
