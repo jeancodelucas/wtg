@@ -1,4 +1,5 @@
 package com.projects.wtg.model;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -25,6 +26,9 @@ public class Account {
     private LocalDateTime lastLogin;
 
     // Relacionamento 1-1 com User
+    @JsonBackReference
+    @ToString.Exclude
     @OneToOne(mappedBy = "account") // <-- lado inverso
+    @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
 }

@@ -1,10 +1,8 @@
 package com.projects.wtg.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -27,6 +25,8 @@ public class Promotion {
     private LocalDateTime updatedAt;
 
     //relacionamento de muitos para um com user.
+    @JsonBackReference
+    @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;

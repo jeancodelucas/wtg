@@ -1,4 +1,5 @@
 package com.projects.wtg.model;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -26,11 +27,14 @@ public class User {
     private LocalDateTime updatedAt;
 
     // Relacionamento 1-1 com Account
+    @JsonManagedReference
+    @ToString.Exclude
     @OneToOne(cascade = CascadeType.ALL) // permite salvar a conta junto
-    @JoinColumn(name = "account_id", referencedColumnName = "id", unique = true)
     private Account account;
 
     // Relacionamento de um para muitos com promotion
+    @JsonManagedReference
+    @ToString.Exclude
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Promotion> promotions;
 }

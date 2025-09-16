@@ -23,13 +23,9 @@ public class UserController {
 
     @PostMapping("/register")
     public ResponseEntity<User> registerUser(@RequestBody UserRegistrationDto registrationDto) {
-        try {
-            User newUser = userService.createUserWithAccount(registrationDto);
-            return new ResponseEntity<>(newUser, HttpStatus.CREATED);
-        } catch (Exception e) {
-            // Em um projeto real, você lidaria com exceções de forma mais específica
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
-        }
+
+        User newUser = userService.createUserWithAccount(registrationDto);
+        return new ResponseEntity<>(newUser, HttpStatus.CREATED);
     }
 }
 

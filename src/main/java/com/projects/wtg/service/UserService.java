@@ -1,6 +1,7 @@
 package com.projects.wtg.service;
 
 import com.projects.wtg.dto.UserRegistrationDto;
+import com.projects.wtg.exception.EmailAlreadyExistsException;
 import com.projects.wtg.model.Account;
 import com.projects.wtg.model.Promotion;
 import com.projects.wtg.model.User;
@@ -25,7 +26,7 @@ public class UserService {
         // Validação: Verifique se o e-mail já existe
         accountRepository.findByEmail(userRegistrationDto.getEmail())
                 .ifPresent(account -> {
-                    throw new RuntimeException("Email já cadastrado!");
+                    throw new EmailAlreadyExistsException("Email já cadastrado!");
                 });
 
         User user = new User();

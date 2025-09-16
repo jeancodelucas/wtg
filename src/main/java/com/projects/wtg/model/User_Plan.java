@@ -1,10 +1,9 @@
 package com.projects.wtg.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -17,12 +16,15 @@ public class User_Plan {
     @EmbeddedId
     private UserPlanId id;
 
+    @JsonBackReference
+    @ToString.Exclude
     @ManyToOne
     @MapsId("userId")
     @JoinColumn(name = "user_id")
     private User user;
 
     @ManyToOne
+    @ToString.Exclude
     @MapsId("planId")
     @JoinColumn(name = "plan_id")
     private Plan plain;
