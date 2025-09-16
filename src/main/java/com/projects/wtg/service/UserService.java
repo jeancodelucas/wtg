@@ -1,5 +1,6 @@
 package com.projects.wtg.service;
 
+import com.projects.wtg.dto.UserRegistrationDto;
 import com.projects.wtg.model.Account;
 import com.projects.wtg.model.Promotion;
 import com.projects.wtg.model.User;
@@ -20,7 +21,26 @@ public class UserService {
         this.accountRepository = accountRepository;
     }
 
-    public User createUserWithAccount(User user, Account account){
+    public User createUserWithAccount(UserRegistrationDto userRegistrationDto){
+        // Validação: Verifique se o e-mail já existe
+        accountRepository.findByEmail(userRegistrationDto.getEmail())
+                .ifPresent(account -> {
+                    throw new RuntimeException("Email já cadastrado!");
+                });
+
+        User user = new User();
+        user.setFullName(userRegistrationDto.getFullName());
+        user.setBirthday(userRegistrationDto.getBirthday());
+        user.setPhone(userRegistrationDto.getPhone());
+        user.setToken(userRegistrationDto.getToken());
+
+        Account account = new Account();
+        account.setUserName(userRegistrationDto.getUserName());
+        account.setEmail(userRegistrationDto.getEmail());
+        account.setSecondEmail(userRegistrationDto.getSecondEmail());
+        account.setPassword(userRegistrationDto.getPassword());
+        account.setConfirmPassword(userRegistrationDto.getConfirmPassword());
+
         user.setAccount(account);
         account.setUser(user);
         return userRepository.save(user);

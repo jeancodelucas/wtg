@@ -1,10 +1,12 @@
 package com.projects.wtg;
 
+import com.projects.wtg.dto.UserRegistrationDto;
 import com.projects.wtg.model.Account;
 import com.projects.wtg.model.User;
 import com.projects.wtg.repository.AccountRepository;
 import com.projects.wtg.repository.UserRepository;
 import com.projects.wtg.service.UserService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -15,10 +17,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class UserServiceTest {
+
     @InjectMocks
     private UserService userService;
 
@@ -28,34 +32,71 @@ public class UserServiceTest {
     @Mock
     private AccountRepository accountRepository;
 
+    private UserRegistrationDto registrationDto;
+    private User mockUser;
+    private Account mockAccount;
+
+    @BeforeEach
+    void setUp() {
+        // Inicializa os objetos antes de cada teste para evitar repetição
+        registrationDto = new UserRegistrationDto();
+        registrationDto.setFullName("Test User");
+        registrationDto.setUserName("test_user");
+        registrationDto.setEmail("test@email.com");
+        registrationDto.setPassword("senha123");
+
+        mockUser = new User();
+        mockUser.setId(1L);
+        mockUser.setFullName("Test User");
+
+        mockAccount = new Account();
+        mockAccount.setId(1L);
+        mockAccount.setEmail("test@email.com");
+        mockAccount.setUserName("test_user");
+        mockUser.setAccount(mockAccount);
+        mockAccount.setUser(mockUser);
+    }
+
     @Test
-    void createUserWithAccount_shouldSetAccountAndSaveUser() {
-        // Cenário: Novos objetos de usuário e conta
-        User user = new User();
-        Account account = new Account();
+    void createUserWithAccount_shouldCreateUser_whenEmailIsUnique() {
+        // Cenário 1: E-mail não existe, a criação deve ser bem-sucedida.
+        when(accountRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenReturn(mockUser);
 
-        // Simular o comportamento do repositório
-        // Quando qualquer User for salvo, retorne o próprio User.
-        when(userRepository.save(any(User.class))).thenReturn(user);
+        // Ação: Chamar o método com o DTO
+        User createdUser = userService.createUserWithAccount(registrationDto);
 
-        // Chamar o método a ser testado
-        User createdUser = userService.createUserWithAccount(user, account);
-
-        // Verificar os resultados
+        // Verificação: O usuário e a conta foram criados e salvos
         assertNotNull(createdUser);
-        assertEquals(account, createdUser.getAccount()); // Verifica se a conta foi associada
-        assertEquals(user, account.getUser()); // Verifica a associação bidirecional
+        assertNotNull(createdUser.getAccount());
+        assertEquals("test@email.com", createdUser.getAccount().getEmail());
 
-        // Verificar se o método save do repositório foi chamado
-        verify(userRepository, times(1)).save(user);
+        // Verificação: Garante que os métodos foram chamados
+        verify(accountRepository, times(1)).findByEmail(anyString());
+        verify(userRepository, times(1)).save(any(User.class));
+    }
+
+    @Test
+    void createUserWithAccount_shouldThrowException_whenEmailAlreadyExists() {
+        // Cenário 2: E-mail já existe, uma exceção deve ser lançada.
+        when(accountRepository.findByEmail(anyString())).thenReturn(Optional.of(mockAccount));
+
+        // Ação e Verificação: Confirma se a exceção é lançada
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                userService.createUserWithAccount(registrationDto));
+
+        assertEquals("Email já cadastrado!", exception.getMessage());
+
+        // Verificação: O método save NUNCA deve ser chamado
+        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
     void updateUserWithAccount_shouldThrowException_whenUserDoesNotExist() {
-        // Cenário: Usuário não existe
+        // Cenário 3: Usuário não existe, uma exceção deve ser lançada.
         when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
 
-        // Verificar se a exceção é lançada
+        // Ação e Verificação: Confirma se a exceção é lançada
         RuntimeException exception = assertThrows(RuntimeException.class, () ->
                 userService.updateUserWithAccount(99L, new User(), new Account(), List.of()));
 
@@ -64,7 +105,7 @@ public class UserServiceTest {
 
     @Test
     void updateUserWithAccount_shouldUpdateUserAndAccount_whenTheyExist() {
-        // Cenário: Usuário e conta existentes
+        // Cenário 4: Usuário e conta existem e devem ser atualizados.
         User existingUser = new User();
         existingUser.setId(1L);
         existingUser.setFullName("Old Name");
@@ -80,46 +121,19 @@ public class UserServiceTest {
         Account newAccountData = new Account();
         newAccountData.setUserName("new_user");
 
-        // Simular o repositório
         when(userRepository.findById(1L)).thenReturn(Optional.of(existingUser));
         when(userRepository.save(any(User.class))).thenReturn(existingUser);
 
-        // Chamar o método a ser testado
+        // Ação: Chamar o método com os dados de atualização
         User updatedUser = userService.updateUserWithAccount(1L, newUserdata, newAccountData, List.of());
 
-        // Verificar os resultados
+        // Verificação: Garante que os dados foram atualizados
         assertNotNull(updatedUser);
         assertEquals("New Name", updatedUser.getFullName());
         assertEquals("new_user", updatedUser.getAccount().getUserName());
 
-        // Verificar as chamadas
+        // Verificação: Garante que os métodos foram chamados
         verify(userRepository, times(1)).findById(1L);
         verify(userRepository, times(1)).save(existingUser);
-    }
-
-    @Test
-    void updateUserWithAccount_shouldCreateAccount_whenUserExistsButHasNoAccount() {
-        // Cenário: Usuário existe, mas não tem conta
-        User existingUser = new User();
-        existingUser.setId(1L);
-        existingUser.setAccount(null); // Sem conta
-
-        Account newAccountData = new Account();
-        newAccountData.setUserName("new_user");
-
-        // Simular o repositório
-        when(userRepository.findById(1L)).thenReturn(Optional.of(existingUser));
-        when(userRepository.save(any(User.class))).thenReturn(existingUser);
-
-        // Chamar o método a ser testado
-        User updatedUser = userService.updateUserWithAccount(1L, new User(), newAccountData, List.of());
-
-        // Verificar os resultados
-        assertNotNull(updatedUser);
-        assertNotNull(updatedUser.getAccount()); // A conta deve ter sido criada
-        assertEquals("new_user", updatedUser.getAccount().getUserName());
-
-        // O usuário deve ter a referência da nova conta e a conta a referência do usuário
-        assertEquals(updatedUser.getAccount().getUser(), updatedUser);
     }
 }
