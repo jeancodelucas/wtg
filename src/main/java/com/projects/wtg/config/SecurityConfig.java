@@ -1,26 +1,27 @@
 package com.projects.wtg.config;
 
-import com.projects.wtg.repository.AccountRepository;
-import com.projects.wtg.repository.UserRepository;
-import com.projects.wtg.service.CustomOAuth2UserService;
+import com.projects.wtg.service.CustomOidcUserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final CustomOAuth2UserService customOAuth2UserService;
+    private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
 
-    public SecurityConfig(CustomOAuth2UserService customOAuth2UserService) {
-        this.customOAuth2UserService = customOAuth2UserService;
+    // 1. Injetando o serviço correto (CustomOidcUserService)
+    private final CustomOidcUserService customOidcUserService;
+
+    public SecurityConfig(CustomOidcUserService customOidcUserService) {
+        this.customOidcUserService = customOidcUserService;
+        logger.info("### SecurityConfig INICIALIZADA com o serviço: {} ###", customOidcUserService.getClass().getName());
     }
 
     @Bean
@@ -33,7 +34,8 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOAuth2UserService)
+                                // 2. Usando o método correto (.oidcUserService) para o fluxo OpenID Connect
+                                .oidcUserService(this.customOidcUserService)
                         )
                         .defaultSuccessUrl("/api/secured/user-info", true)
                 )
