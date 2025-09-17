@@ -10,11 +10,15 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 
 @Service
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CustomOAuth2UserService.class);
 
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
@@ -27,7 +31,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     @Override
     @Transactional
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        System.out.println(">>> Método loadUser iniciado. Buscando informações do usuário..."); // Log de início
+        logger.info(">>> Método loadUser iniciado. Buscando informações do usuário...");
         OAuth2User oAuth2User = super.loadUser(userRequest);
 
         try {
@@ -38,20 +42,22 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             String provider = userRequest.getClientRegistration().getRegistrationId();
             String sub = oAuth2User.getAttribute("sub");
 
-            System.out.println(">>> Email do usuário: " + email); // Log de informações
+            logger.info(">>> Email do usuário: {}", email);
 
             Optional<Account> existingAccount = accountRepository.findByEmail(email);
             Account account;
             User user;
 
             if (existingAccount.isPresent()) {
-                System.out.println(">>> Usuário existente encontrado. Atualizando dados..."); // Log de atualização
+                logger.info(">>> Usuário existente encontrado. Atualizando dados...");
                 account = existingAccount.get();
                 user = account.getUser();
 
-                user.setFirstName(given_name);
-                user.setFullName(family_name);
-                user.setPictureUrl(picture);
+                if (user != null) {
+                    user.setFirstName(given_name);
+                    user.setFullName(family_name);
+                    user.setPictureUrl(picture);
+                }
 
                 account.setUserName(email);
                 account.setEmail(email);
@@ -63,10 +69,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 }
 
                 userRepository.save(user);
-                System.out.println(">>> Usuário atualizado com sucesso!");
+                logger.info(">>> Usuário atualizado com sucesso!");
 
             } else {
-                System.out.println(">>> Nenhum usuário encontrado. Criando novo usuário..."); // Log de criação
+                logger.info(">>> Nenhum usuário encontrado. Criando novo usuário...");
                 user = new User();
                 user.setFirstName(given_name);
                 user.setFullName(family_name);
@@ -86,12 +92,11 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 account.setUser(user);
 
                 userRepository.save(user);
-                System.out.println(">>> Novo usuário criado e salvo com sucesso!");
+                logger.info(">>> Novo usuário criado e salvo com sucesso!");
             }
 
         } catch (Exception e) {
-            System.err.println(">>> Erro fatal ao salvar usuário: " + e.getMessage()); // Captura de erros
-            e.printStackTrace();
+            logger.error(">>> Erro fatal ao salvar usuário: {}", e.getMessage(), e);
         }
 
         return oAuth2User;

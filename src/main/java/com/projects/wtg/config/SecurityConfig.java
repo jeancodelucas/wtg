@@ -17,14 +17,9 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final UserRepository userRepository;
-    private final AccountRepository accountRepository;
-    private final CustomOAuth2UserService customOAuth2UserService; // Injete a classe de serviço aqui
+    private final CustomOAuth2UserService customOAuth2UserService;
 
-    // Ajuste o construtor para injetar a sua classe de serviço
-    public SecurityConfig(UserRepository userRepository, AccountRepository accountRepository, CustomOAuth2UserService customOAuth2UserService) {
-        this.userRepository = userRepository;
-        this.accountRepository = accountRepository;
+    public SecurityConfig(CustomOAuth2UserService customOAuth2UserService) {
         this.customOAuth2UserService = customOAuth2UserService;
     }
 
@@ -38,7 +33,7 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
-                                .userService(customOAuth2UserService) // Use a instância injetada
+                                .userService(customOAuth2UserService)
                         )
                         .defaultSuccessUrl("/api/secured/user-info", true)
                 )

@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User_Plan {
+public class UserPlan { // Renomeado de User_Plan
     @EmbeddedId
     private UserPlanId id;
 
@@ -27,10 +27,8 @@ public class User_Plan {
     @ToString.Exclude
     @MapsId("planId")
     @JoinColumn(name = "plan_id")
-    private Plan plain;
+    private Plan plan; // Renomeado de plain
 
     private LocalDateTime started_at;
     private LocalDateTime finish_at;
-
-
 }
