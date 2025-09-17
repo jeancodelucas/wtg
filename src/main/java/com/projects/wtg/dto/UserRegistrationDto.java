@@ -13,10 +13,15 @@ public class UserRegistrationDto {
     private String phone;
     private String token;
     private String firstName;
+    private String pictureUrl;
 
     private String userName;
     private String email;
     private String secondEmail;
     private String password;
     private String confirmPassword;
+    private boolean emailVerified;
+    private String locale;
+    private String loginSub;
+    private String loginProvider;
 }

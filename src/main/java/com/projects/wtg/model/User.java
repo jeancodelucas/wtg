@@ -7,7 +7,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @Entity
-@Table(name = "user", schema = "appwtg") // mapeando a tabela existente
+@Table(name = "user", schema = "appwtg")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,11 +25,13 @@ public class User {
     private String token;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private String pictureUrl;
 
-    // Relacionamento 1-1 com Account
+    // Relacionamento 1-1 com Account (Lado dono)
     @JsonManagedReference
     @ToString.Exclude
-    @OneToOne(cascade = CascadeType.ALL) // permite salvar a conta junto
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "account_id", referencedColumnName = "id")
     private Account account;
 
     // Relacionamento de um para muitos com promotion

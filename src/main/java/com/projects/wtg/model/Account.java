@@ -24,11 +24,15 @@ public class Account {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime lastLogin;
+    private Boolean emailVerified;
+    private String loginProvider;
+    private String locale;
+    private String loginSub;
 
-    // Relacionamento 1-1 com User
+    // Relacionamento 1-1 com User (Lado inverso)
     @JsonBackReference
     @ToString.Exclude
-    @OneToOne(mappedBy = "account") // <-- lado inverso
-    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    @OneToOne(mappedBy = "account")
     private User user;
+
 }
