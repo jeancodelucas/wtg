@@ -14,6 +14,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import com.projects.wtg.service.CustomAuthenticationSuccessHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -23,11 +24,13 @@ public class SecurityConfig {
 
     private final CustomOidcUserService customOidcUserService;
     private final JpaUserDetailsService jpaUserDetailsService;
+    private final CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
 
-    public SecurityConfig(CustomOidcUserService customOidcUserService, JpaUserDetailsService jpaUserDetailsService) {
+    public SecurityConfig(CustomOidcUserService customOidcUserService, JpaUserDetailsService jpaUserDetailsService, CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler) {
         this.customOidcUserService = customOidcUserService;
         this.jpaUserDetailsService = jpaUserDetailsService;
         logger.info("### SecurityConfig INICIALIZADA com os serviços OIDC e JPA ###");
+        this.customAuthenticationSuccessHandler = customAuthenticationSuccessHandler;
     }
 
     @Bean
@@ -57,7 +60,7 @@ public class SecurityConfig {
                         .userInfoEndpoint(userInfo -> userInfo
                                 .oidcUserService(this.customOidcUserService)
                         )
-                        .defaultSuccessUrl("/api/secured/user-info", true)
+                        .successHandler(customAuthenticationSuccessHandler)
                 )
 
                 // NOVO: Tratamento de exceção para APIs REST
