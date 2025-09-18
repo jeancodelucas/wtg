@@ -85,6 +85,5 @@ public class UserService {
         }
         return STRONG_PASSWORD_PATTERN.matcher(password).matches();
     }
-
-    // Outros métodos do seu serviço podem vir aqui...
+    
 }
