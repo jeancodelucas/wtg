@@ -104,8 +104,8 @@ public class CustomOidcUserService extends OidcUserService {
                 .id(new UserPlanId(user.getId(), freePlan.getId()))
                 .user(user)
                 .plan(freePlan)
-                .status(PlanStatus.ACTIVE)
-                .started_at(LocalDateTime.now())
+                .planStatus(PlanStatus.ACTIVE)
+                .startedAt(LocalDateTime.now())
                 .build();
 
         user.getUserPlans().add(userPlan);

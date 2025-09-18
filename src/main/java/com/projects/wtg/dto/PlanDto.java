@@ -22,8 +22,8 @@ public class PlanDto {
         this.planName = userPlan.getPlan().getPlanName();
         this.type = userPlan.getPlan().getType();
         this.value = userPlan.getPlan().getValue();
-        this.status = userPlan.getStatus();
-        this.startedAt = userPlan.getStarted_at();
-        this.finishAt = userPlan.getFinish_at();
+        this.status = userPlan.getPlanStatus();
+        this.startedAt = userPlan.getStartedAt();
+        this.finishAt = userPlan.getFinishAt();
     }
 }

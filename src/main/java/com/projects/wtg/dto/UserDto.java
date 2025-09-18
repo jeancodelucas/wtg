@@ -29,7 +29,7 @@ public class UserDto {
         // 2. Lógica para encontrar e mapear o plano ativo
         if (user.getUserPlans() != null) {
             Optional<PlanDto> activePlanDto = user.getUserPlans().stream()
-                    .filter(up -> up.getStatus() == PlanStatus.ACTIVE)
+                    .filter(up -> up.getPlanStatus() == PlanStatus.ACTIVE)
                     .findFirst()
                     .map(PlanDto::new); // Converte o UserPlan encontrado para PlanDto
 

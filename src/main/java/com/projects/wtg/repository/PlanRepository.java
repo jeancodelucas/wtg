@@ -7,5 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface PlanRepository extends JpaRepository<Plan, Long> {
+
+    // Com a correção no application.properties, o Spring Data JPA agora consegue
+    // gerar a consulta correta para este método automaticamente.
     Optional<Plan> findByType(PlanType type);
 }

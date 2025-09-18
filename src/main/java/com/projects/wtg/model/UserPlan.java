@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserPlan { // Renomeado de User_Plan
+public class UserPlan {
     @EmbeddedId
     private UserPlanId id;
 
@@ -27,12 +27,13 @@ public class UserPlan { // Renomeado de User_Plan
     @ToString.Exclude
     @MapsId("planId")
     @JoinColumn(name = "plan_id")
-    private Plan plan; // Renomeado de plain
+    private Plan plan;
 
-    private LocalDateTime started_at;
-    private LocalDateTime finish_at;
+    private LocalDateTime startedAt;
+    private LocalDateTime finishAt;
 
-    @Enumerated(EnumType.STRING)
+    // --- CORREÇÃO FINAL ---
+    // Mapeia explicitamente o atributo 'planStatus' para a coluna 'status' do banco de dados.
     @Column(name = "status")
-    private PlanStatus status;
+    private PlanStatus planStatus;
 }

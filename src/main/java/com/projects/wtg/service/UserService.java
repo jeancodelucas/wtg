@@ -72,8 +72,8 @@ public class UserService {
                 .id(new UserPlanId(null, freePlan.getId())) // Deixe o ID do usuário como nulo por enquanto
                 .user(user)
                 .plan(freePlan)
-                .status(PlanStatus.ACTIVE)
-                .started_at(LocalDateTime.now())
+                .planStatus(PlanStatus.ACTIVE)
+                .startedAt(LocalDateTime.now())
                 .build();
 
         user.getUserPlans().add(userPlan);
