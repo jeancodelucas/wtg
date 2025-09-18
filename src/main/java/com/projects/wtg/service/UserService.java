@@ -6,6 +6,7 @@ import com.projects.wtg.model.*;
 import com.projects.wtg.repository.AccountRepository;
 import com.projects.wtg.repository.PlanRepository;
 import com.projects.wtg.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class UserService {
 
     @Transactional
     public User createUserWithAccount(UserRegistrationDto userRegistrationDto) {
+        // ... (código existente para criar usuário)
         accountRepository.findByEmail(userRegistrationDto.getEmail())
                 .ifPresent(account -> {
                     throw new EmailAlreadyExistsException("Este e-mail já está cadastrado. Por favor, faça o login.");
@@ -49,6 +51,7 @@ public class UserService {
         User user = new User();
         user.setFullName(userRegistrationDto.getFullName());
         user.setFirstName(userRegistrationDto.getFirstName());
+        user.setActive(true); // Define o usuário como ativo no momento do cadastro
 
         Account account = new Account();
         account.setUserName(userRegistrationDto.getUserName());
@@ -62,14 +65,30 @@ public class UserService {
         return userRepository.save(user);
     }
 
+    @Transactional
+    public void deleteUserById(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new EntityNotFoundException("Usuário com ID " + userId + " não encontrado.");
+        }
+        userRepository.deleteById(userId);
+    }
+
+    @Transactional
+    public User deactivateUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("Usuário com ID " + userId + " não encontrado."));
+
+        user.setActive(false);
+        return userRepository.save(user);
+    }
+
     private void assignFreePlanToUser(User user) {
+        // ... (código existente para atribuir plano)
         Plan freePlan = planRepository.findByType(PlanType.FREE)
                 .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
 
-        // O ID do usuário ainda é nulo aqui, pois ele não foi salvo.
-        // O JPA/Hibernate gerencia a chave composta quando salvamos o User com cascade.
         UserPlan userPlan = UserPlan.builder()
-                .id(new UserPlanId(null, freePlan.getId())) // Deixe o ID do usuário como nulo por enquanto
+                .id(new UserPlanId(null, freePlan.getId()))
                 .user(user)
                 .plan(freePlan)
                 .planStatus(PlanStatus.ACTIVE)
@@ -80,10 +99,10 @@ public class UserService {
     }
 
     private boolean isPasswordStrong(String password) {
+        // ... (código existente para validar senha)
         if (password == null) {
             return false;
         }
         return STRONG_PASSWORD_PATTERN.matcher(password).matches();
     }
-    
 }

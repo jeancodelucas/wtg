@@ -32,8 +32,9 @@ public class UserPlan {
     private LocalDateTime startedAt;
     private LocalDateTime finishAt;
 
-    // --- CORREÇÃO FINAL ---
     // Mapeia explicitamente o atributo 'planStatus' para a coluna 'status' do banco de dados.
     @Column(name = "status")
     private PlanStatus planStatus;
+
+    private Boolean paymentMade;
 }
