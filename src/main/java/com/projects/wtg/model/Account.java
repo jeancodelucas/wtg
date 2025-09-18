@@ -36,6 +36,7 @@ public class Account {
     private String loginProvider;
     private String locale;
     private String loginSub;
+    private Boolean active;
 
     // Relacionamento 1-1 com User (Lado inverso)
     @JsonBackReference
