@@ -25,7 +25,11 @@ public class Account {
     private String confirmPassword;
     private String token;
     private String secondEmail;
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
     private LocalDateTime updatedAt;
     private LocalDateTime lastLogin;
     private Boolean emailVerified;
