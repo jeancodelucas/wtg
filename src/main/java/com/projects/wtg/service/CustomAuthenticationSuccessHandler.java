@@ -35,7 +35,7 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
         String email = oidcUser.getEmail();
 
         // 2. Buscar a conta e o usuário no banco de dados
-        Account account = accountRepository.findByEmail(email)
+        Account account = accountRepository.findByEmailWithUser(email)
                 .orElseThrow(() -> new IllegalStateException("Usuário SSO logado não encontrado no banco de dados."));
 
         // 3. Criar os DTOs de resposta

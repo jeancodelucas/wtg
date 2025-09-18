@@ -3,10 +3,12 @@ package com.projects.wtg.model;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
 @Entity
+@EntityListeners(AuditingEntityListener.class)
 @Table(name= "promotion", schema = "appwtg")
 @Data
 @NoArgsConstructor
