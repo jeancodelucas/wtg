@@ -24,10 +24,16 @@ public class JpaUserDetailsService implements UserDetailsService {
         Account account = accountRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o e-mail: " + email));
 
+        // A lógica de reativação foi movida para o AuthController.
+        // O Spring Security sempre retornará um UserDetails "habilitado" para que a senha possa ser validada.
         return new User(
                 account.getEmail(),
                 account.getPassword(),
-                Collections.emptyList() // Você pode adicionar authorities/roles aqui se precisar
+                true, // enabled
+                true, // accountNonExpired
+                true, // credentialsNonExpired
+                true, // accountNonLocked
+                Collections.emptyList()
         );
     }
 }

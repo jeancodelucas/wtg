@@ -8,10 +8,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.security.Principal;
 
 @RestController
 @RequestMapping("/api/users")
@@ -23,31 +20,13 @@ public class UserController {
         this.userService = userService;
     }
 
-    @GetMapping("/user-info")
-    public Principal getUserInfo(Principal principal) {
-        return principal; // Retorna informações do usuário autenticado
-    }
     @PostMapping("/register")
     public ResponseEntity<UserDto> registerUser(@Valid @RequestBody UserRegistrationDto registrationDto) {
         User createdUser = userService.createUserWithAccount(registrationDto);
-        // Converta a entidade para DTO antes de retornar
         UserDto userDto = new UserDto(createdUser);
         return new ResponseEntity<>(userDto, HttpStatus.CREATED);
     }
 
-    @PatchMapping("/{id}/deactivate")
-    public ResponseEntity<UserDto> deactivateUser(@PathVariable Long id) {
-        User deactivatedUser = userService.deactivateUser(id);
-        return ResponseEntity.ok(new UserDto(deactivatedUser));
-    }
-
-    @PreAuthorize("#id == authentication.principal.id")
-    @DeleteMapping("/{id}/delete")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        userService.deleteUserById(id);
-        return ResponseEntity.noContent().build(); // Retorna status 204 No Content
-    }
-
-
-
+    // Os endpoints de desativar e deletar foram movidos para UserProfileController
+    // para maior segurança e melhor design da API.
 }

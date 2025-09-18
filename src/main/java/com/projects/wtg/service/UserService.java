@@ -7,6 +7,7 @@ import com.projects.wtg.repository.AccountRepository;
 import com.projects.wtg.repository.PlanRepository;
 import com.projects.wtg.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,14 +35,13 @@ public class UserService {
 
     @Transactional
     public User createUserWithAccount(UserRegistrationDto userRegistrationDto) {
-        // ... (código existente para criar usuário)
         accountRepository.findByEmail(userRegistrationDto.getEmail())
                 .ifPresent(account -> {
                     throw new EmailAlreadyExistsException("Este e-mail já está cadastrado. Por favor, faça o login.");
                 });
 
         if (!isPasswordStrong(userRegistrationDto.getPassword())) {
-            throw new IllegalArgumentException("A senha não atende aos critérios de segurança (mínimo 8 caracteres, com maiúscula, minúscula, número e caractere especial).");
+            throw new IllegalArgumentException("A senha não atende aos critérios de segurança...");
         }
 
         if (!userRegistrationDto.getPassword().equals(userRegistrationDto.getConfirmPassword())) {
@@ -51,39 +51,47 @@ public class UserService {
         User user = new User();
         user.setFullName(userRegistrationDto.getFullName());
         user.setFirstName(userRegistrationDto.getFirstName());
-        user.setActive(true); // Define o usuário como ativo no momento do cadastro
 
         Account account = new Account();
         account.setUserName(userRegistrationDto.getUserName());
         account.setEmail(userRegistrationDto.getEmail());
         account.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
+        account.setActive(true); // Define a CONTA como ativa no cadastro
 
         user.setAccount(account);
-
         assignFreePlanToUser(user);
-
         return userRepository.save(user);
     }
 
     @Transactional
-    public void deleteUserById(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new EntityNotFoundException("Usuário com ID " + userId + " não encontrado.");
+    public User deactivateUserByEmail(String email) {
+        Account account = accountRepository.findByEmailWithUserAndPlans(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Conta não encontrada para o e-mail: " + email));
+
+        account.setActive(false); // Desativa a CONTA
+        accountRepository.save(account);
+
+        return account.getUser();
+    }
+
+    @Transactional
+    public void deleteUserByEmail(String email) {
+        Account account = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Conta não encontrada para o e-mail: " + email));
+
+        userRepository.delete(account.getUser());
+    }
+
+    @Transactional
+    public Account reactivateAccount(Account account) {
+        if (account != null && !account.getActive()) {
+            account.setActive(true);
+            return accountRepository.save(account);
         }
-        userRepository.deleteById(userId);
-    }
-
-    @Transactional
-    public User deactivateUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("Usuário com ID " + userId + " não encontrado."));
-
-        user.setActive(false);
-        return userRepository.save(user);
+        return account;
     }
 
     private void assignFreePlanToUser(User user) {
-        // ... (código existente para atribuir plano)
         Plan freePlan = planRepository.findByType(PlanType.FREE)
                 .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
 
@@ -99,7 +107,6 @@ public class UserService {
     }
 
     private boolean isPasswordStrong(String password) {
-        // ... (código existente para validar senha)
         if (password == null) {
             return false;
         }

@@ -25,23 +25,26 @@ public class Account {
     private String confirmPassword;
     private String token;
     private String secondEmail;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
     @LastModifiedDate
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
     private LocalDateTime lastLogin;
     private Boolean emailVerified;
     private String loginProvider;
     private String locale;
     private String loginSub;
+
+    // ADICIONADO A ESTA CLASSE
     private Boolean active;
 
-    // Relacionamento 1-1 com User (Lado inverso)
     @JsonBackReference
     @ToString.Exclude
     @OneToOne(mappedBy = "account")
     private User user;
-
 }

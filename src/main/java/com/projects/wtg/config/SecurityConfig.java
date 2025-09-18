@@ -50,24 +50,20 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .userDetailsService(jpaUserDetailsService) // Define o provedor de usuários para autenticação local
-
-                // Configuração das regras de autorização
+                .userDetailsService(jpaUserDetailsService)
                 .authorizeHttpRequests(auth -> auth
+                        // Endpoints públicos
                         .requestMatchers("/api/users/register", "/api/auth/login", "/error").permitAll()
-                        .requestMatchers(HttpMethod.PATCH, "/api/users/**").authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/api/users/**").authenticated()
+                        // Protege todos os endpoints de perfil do usuário logado
+                        .requestMatchers("/api/profile/me/**").authenticated()
                         .anyRequest().authenticated()
                 )
-
-                // Configuração do Login via SSO (OIDC)
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo
                                 .oidcUserService(this.customOidcUserService)
                         )
                         .successHandler(customAuthenticationSuccessHandler)
                 )
-
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, authException) ->
                                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Não autorizado")

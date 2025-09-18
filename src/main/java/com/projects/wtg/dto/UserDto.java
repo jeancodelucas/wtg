@@ -14,6 +14,7 @@ public class UserDto {
     private String phone;
     private String pictureUrl;
     private String email;
+    private Boolean active; // <-- CAMPO QUE ESTAVA FALTANDO
     private PlanDto activePlan;
 
     public UserDto(User user) {
@@ -22,16 +23,17 @@ public class UserDto {
         this.fullName = user.getFullName();
         this.phone = user.getPhone();
         this.pictureUrl = user.getPictureUrl();
+
         if (user.getAccount() != null) {
             this.email = user.getAccount().getEmail();
+            this.active = user.getAccount().getActive(); // Agora esta linha funciona
         }
 
-        // 2. Lógica para encontrar e mapear o plano ativo
         if (user.getUserPlans() != null) {
             Optional<PlanDto> activePlanDto = user.getUserPlans().stream()
                     .filter(up -> up.getPlanStatus() == PlanStatus.ACTIVE)
                     .findFirst()
-                    .map(PlanDto::new); // Converte o UserPlan encontrado para PlanDto
+                    .map(PlanDto::new);
 
             this.activePlan = activePlanDto.orElse(null);
         }

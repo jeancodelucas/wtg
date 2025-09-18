@@ -13,7 +13,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "`user`", schema = "appwtg")
-@EntityListeners(AuditingEntityListener.class) // Habilita a auditoria
+@EntityListeners(AuditingEntityListener.class)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,7 +26,7 @@ public class User {
     private String firstName;
     private String fullName;
     private LocalDate birthday;
-    private Boolean active;
+    // private Boolean active; // REMOVIDO DESTA CLASSE
     private String phone;
     private String token;
 
@@ -49,14 +49,13 @@ public class User {
     @JsonManagedReference
     @ToString.Exclude
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default // Garante que a lista seja inicializada ao usar o Builder
+    @Builder.Default
     private List<Promotion> promotions = new ArrayList<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<UserPlan> userPlans = new ArrayList<>();
 
-    // Helper method para manter o relacionamento bidirecional consistente
     public void setAccount(Account account) {
         if (account == null) {
             if (this.account != null) {
