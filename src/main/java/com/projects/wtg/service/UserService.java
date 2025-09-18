@@ -7,6 +7,7 @@ import com.projects.wtg.repository.AccountRepository;
 import com.projects.wtg.repository.PlanRepository;
 import com.projects.wtg.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.context.annotation.Lazy; // 1. Importe a anotação @Lazy
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,7 +27,8 @@ public class UserService {
     private static final Pattern STRONG_PASSWORD_PATTERN =
             Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$");
 
-    public UserService(UserRepository userRepository, AccountRepository accountRepository, PasswordEncoder passwordEncoder, PlanRepository planRepository) {
+    // 2. Adicione a anotação @Lazy no parâmetro que fecha o ciclo
+    public UserService(UserRepository userRepository, AccountRepository accountRepository, @Lazy PasswordEncoder passwordEncoder, PlanRepository planRepository) {
         this.userRepository = userRepository;
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
@@ -56,7 +58,7 @@ public class UserService {
         account.setUserName(userRegistrationDto.getUserName());
         account.setEmail(userRegistrationDto.getEmail());
         account.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
-        account.setActive(true); // Define a CONTA como ativa no cadastro
+        account.setActive(true);
 
         user.setAccount(account);
         assignFreePlanToUser(user);
@@ -68,7 +70,7 @@ public class UserService {
         Account account = accountRepository.findByEmailWithUserAndPlans(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Conta não encontrada para o e-mail: " + email));
 
-        account.setActive(false); // Desativa a CONTA
+        account.setActive(false);
         accountRepository.save(account);
 
         return account.getUser();

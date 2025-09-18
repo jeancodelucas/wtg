@@ -2,6 +2,7 @@ package com.projects.wtg.config;
 
 import com.projects.wtg.service.CustomOidcUserService;
 import com.projects.wtg.service.JpaUserDetailsService;
+import com.projects.wtg.service.UserService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,10 +29,12 @@ public class SecurityConfig {
     private final CustomOidcUserService customOidcUserService;
     private final JpaUserDetailsService jpaUserDetailsService;
     private final CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
+    private final UserService userService;
 
-    public SecurityConfig(CustomOidcUserService customOidcUserService, JpaUserDetailsService jpaUserDetailsService, CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler) {
+    public SecurityConfig(CustomOidcUserService customOidcUserService, JpaUserDetailsService jpaUserDetailsService, CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler, UserService userService) {
         this.customOidcUserService = customOidcUserService;
         this.jpaUserDetailsService = jpaUserDetailsService;
+        this.userService = userService;
         logger.info("### SecurityConfig INICIALIZADA com os serviços OIDC e JPA ###");
         this.customAuthenticationSuccessHandler = customAuthenticationSuccessHandler;
     }
