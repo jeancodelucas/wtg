@@ -1,10 +1,8 @@
-// src/main/java/com/projects/wtg/service/CustomOidcUserService.java
-
 package com.projects.wtg.service;
 
-import com.projects.wtg.model.Account;
-import com.projects.wtg.model.User;
+import com.projects.wtg.model.*;
 import com.projects.wtg.repository.AccountRepository;
+import com.projects.wtg.repository.PlanRepository;
 import com.projects.wtg.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,13 +12,6 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.projects.wtg.model.Plan; // Importe
-import com.projects.wtg.model.PlanStatus; // Importe
-import com.projects.wtg.model.PlanType; // Importe
-import com.projects.wtg.model.UserPlan; // Importe
-import com.projects.wtg.model.UserPlanId; // Importe
-import com.projects.wtg.repository.PlanRepository; // Importe
-import java.time.LocalDateTime; // Importe
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -77,18 +68,19 @@ public class CustomOidcUserService extends OidcUserService {
             user.setFirstName(given_name);
             user.setFullName(family_name);
             user.setPictureUrl(picture);
-            user.setCreatedAt(LocalDateTime.now());
-            user.setUpdatedAt(LocalDateTime.now());
+            // CORREÇÃO: Removemos o set manual de createdAt e updatedAt. O JPA Auditing fará isso.
 
             Account account = new Account();
             account.setEmail(email);
-            account.setUserName(email); // Usando o email como username padrão
+            account.setUserName(email);
             account.setLoginSub(sub);
             account.setLoginProvider(provider);
-            account.setCreatedAt(LocalDateTime.now());
-            account.setUpdatedAt(LocalDateTime.now());
+            // CORREÇÃO: Removemos o set manual de createdAt e updatedAt.
 
             user.setAccount(account);
+
+            // CORREÇÃO: Adicionando a atribuição do plano gratuito para novos usuários SSO.
+            assignFreePlanToUser(user);
         }
 
         userRepository.save(user);
@@ -96,12 +88,13 @@ public class CustomOidcUserService extends OidcUserService {
         logger.info(">>> Dados do usuário OIDC salvos/atualizados com sucesso!");
         return oidcUser;
     }
+
     private void assignFreePlanToUser(User user) {
         Plan freePlan = planRepository.findByType(PlanType.FREE)
                 .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
 
         UserPlan userPlan = UserPlan.builder()
-                .id(new UserPlanId(user.getId(), freePlan.getId()))
+                .id(new UserPlanId(null, freePlan.getId()))
                 .user(user)
                 .plan(freePlan)
                 .planStatus(PlanStatus.ACTIVE)
