@@ -15,6 +15,7 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 
@@ -69,12 +70,16 @@ public class CustomOidcUserService extends OidcUserService {
             user.setFirstName(given_name);
             user.setFullName(family_name);
             user.setPictureUrl(picture);
+            user.setCreatedAt(LocalDateTime.now());
+            user.setUpdatedAt(LocalDateTime.now());
 
             Account account = new Account();
             account.setEmail(email);
             account.setUserName(email); // Usando o email como username padrão
             account.setLoginSub(sub);
             account.setLoginProvider(provider);
+            account.setCreatedAt(LocalDateTime.now());
+            account.setUpdatedAt(LocalDateTime.now());
 
             // Relacionamento bidirecional
             user.setAccount(account);
