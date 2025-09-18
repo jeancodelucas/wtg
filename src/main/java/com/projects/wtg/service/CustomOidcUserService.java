@@ -41,7 +41,6 @@ public class CustomOidcUserService extends OidcUserService {
         String email = (String) attributes.get("email");
         logger.info(">>> Email do usuário OIDC: {}", email);
 
-        // Sua lógica de buscar/criar usuário continua aqui, usando os 'attributes'
         String given_name = (String) attributes.get("given_name");
         String family_name = (String) attributes.get("family_name");
         String picture = (String) attributes.get("picture");
@@ -55,17 +54,37 @@ public class CustomOidcUserService extends OidcUserService {
             logger.info(">>> Usuário existente encontrado. Atualizando dados...");
             Account account = existingAccount.get();
             user = account.getUser();
-            // ... (resto da sua lógica de atualização)
+
+            // Lógica de atualização
+            user.setFirstName(given_name);
+            user.setFullName(family_name);
+            user.setPictureUrl(picture);
+            account.setLoginSub(sub);
+            account.setLoginProvider(provider);
+            // ... outros campos de atualização
+
         } else {
             logger.info(">>> Nenhum usuário encontrado. Criando novo usuário...");
             user = new User();
-            // ... (resto da sua lógica de criação)
+            user.setFirstName(given_name);
+            user.setFullName(family_name);
+            user.setPictureUrl(picture);
+
+            Account account = new Account();
+            account.setEmail(email);
+            account.setUserName(email); // Usando o email como username padrão
+            account.setLoginSub(sub);
+            account.setLoginProvider(provider);
+
+            // Relacionamento bidirecional
+            user.setAccount(account);
+            account.setUser(user);
         }
 
-        // ... Salve o usuário ...
-        // userRepository.save(user); // Exemplo
-        logger.info(">>> Dados do usuário OIDC salvos/atualizados com sucesso!");
+        // LINHA CRÍTICA QUE ESTAVA FALTANDO
+        userRepository.save(user);
 
+        logger.info(">>> Dados do usuário OIDC salvos/atualizados com sucesso!");
         return oidcUser;
     }
 }

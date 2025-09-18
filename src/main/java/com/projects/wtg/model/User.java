@@ -39,4 +39,16 @@ public class User {
     @ToString.Exclude
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Promotion> promotions;
+
+
+    public void setAccount(Account account) { //cria a relação de user-account 1-1 sem precisar ficar setando o user no account.
+        if (account == null) {
+            if (this.account != null) {
+                this.account.setUser(null);
+            }
+        } else {
+            account.setUser(this);
+        }
+        this.account = account;
+    }
 }

@@ -17,7 +17,7 @@ public class UserService {
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
 
-    private UserService (UserRepository userRepository, AccountRepository accountRepository){
+    public UserService (UserRepository userRepository, AccountRepository accountRepository){
         this.userRepository = userRepository;
         this.accountRepository = accountRepository;
     }
@@ -29,22 +29,9 @@ public class UserService {
                     throw new EmailAlreadyExistsException("Email já cadastrado!");
                 });
 
-        User user = new User();
-        user.setFullName(userRegistrationDto.getFullName());
-        user.setBirthday(userRegistrationDto.getBirthday());
-        user.setPhone(userRegistrationDto.getPhone());
-        user.setToken(userRegistrationDto.getToken());
-        user.setFirstName(userRegistrationDto.getFirstName());
-
-        Account account = new Account();
-        account.setUserName(userRegistrationDto.getUserName());
-        account.setEmail(userRegistrationDto.getEmail());
-        account.setSecondEmail(userRegistrationDto.getSecondEmail());
-        account.setPassword(userRegistrationDto.getPassword());
-        account.setConfirmPassword(userRegistrationDto.getConfirmPassword());
-
-        user.setAccount(account);
-        account.setUser(user);
+        User user = userRegistrationDto.toUser();
+        Account account = userRegistrationDto.toAccount();
+        user.setAccount(account); // O método helper cuida da sincronia
         return userRepository.save(user);
     }
 

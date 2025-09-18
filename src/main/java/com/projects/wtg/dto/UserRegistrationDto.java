@@ -1,5 +1,7 @@
 package com.projects.wtg.dto;
 
+import com.projects.wtg.model.Account;
+import com.projects.wtg.model.User;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -24,4 +26,23 @@ public class UserRegistrationDto {
     private String locale;
     private String loginSub;
     private String loginProvider;
+
+    public User toUser() {
+        User user = new User();
+        user.setFullName(this.fullName);
+        user.setBirthday(this.birthday);
+        user.setPhone(this.phone);
+        user.setToken(this.token);
+        user.setFirstName(this.firstName);
+        return user;
+    }
+
+    public Account toAccount() {
+        Account account = new Account();
+        account.setUserName(this.userName);
+        account.setEmail(this.email);
+        account.setPassword(this.password);
+        account.setConfirmPassword(this.confirmPassword);
+        return account;
+    }
 }
