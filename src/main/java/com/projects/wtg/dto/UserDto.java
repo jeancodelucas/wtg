@@ -1,9 +1,11 @@
 package com.projects.wtg.dto;
 
+import com.projects.wtg.model.PlanStatus;
 import com.projects.wtg.model.User;
 import lombok.Data;
 
-// DTO para representar os dados do usuário na resposta da API
+import java.util.Optional;
+
 @Data
 public class UserDto {
     private Long id;
@@ -11,9 +13,9 @@ public class UserDto {
     private String fullName;
     private String phone;
     private String pictureUrl;
-    private String email; // Adicionando o email para conveniência
+    private String email;
+    private PlanDto activePlan;
 
-    // Construtor que converte uma entidade User para este DTO
     public UserDto(User user) {
         this.id = user.getId();
         this.firstName = user.getFirstName();
@@ -22,6 +24,16 @@ public class UserDto {
         this.pictureUrl = user.getPictureUrl();
         if (user.getAccount() != null) {
             this.email = user.getAccount().getEmail();
+        }
+
+        // 2. Lógica para encontrar e mapear o plano ativo
+        if (user.getUserPlans() != null) {
+            Optional<PlanDto> activePlanDto = user.getUserPlans().stream()
+                    .filter(up -> up.getStatus() == PlanStatus.ACTIVE)
+                    .findFirst()
+                    .map(PlanDto::new); // Converte o UserPlan encontrado para PlanDto
+
+            this.activePlan = activePlanDto.orElse(null);
         }
     }
 }

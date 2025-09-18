@@ -46,7 +46,7 @@ public class AuthController {
         HttpSession session = request.getSession(true); // Cria uma nova sessão
         session.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
 
-        Account account = accountRepository.findByEmail(loginRequest.getEmail())
+        Account account = accountRepository.findByEmailWithUserAndPlans(loginRequest.getEmail())
                 .orElseThrow(() -> new IllegalStateException("Usuário logado não encontrado no banco de dados."));
 
         UserDto userDto = new UserDto(account.getUser());
