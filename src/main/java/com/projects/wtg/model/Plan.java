@@ -6,8 +6,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal; // 1. Importe o BigDecimal
+
 @Entity
-@Table(name= "Plan", schema = "appwtg")
+@Table(name= "plan", schema = "appwtg")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -15,10 +17,13 @@ import lombok.NoArgsConstructor;
 public class Plan {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-
     private Long id;
-    private String plan_name;
-    private long value;
+
+    @Column(name = "plan_name") // Mapeamento explícito para snake_case
+    private String planName;
+
+    @Column(precision = 10, scale = 2)
+    private BigDecimal value;
 
     @Enumerated(EnumType.STRING)
     private PlanType type;

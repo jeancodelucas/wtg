@@ -14,6 +14,13 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.projects.wtg.model.Plan; // Importe
+import com.projects.wtg.model.PlanStatus; // Importe
+import com.projects.wtg.model.PlanType; // Importe
+import com.projects.wtg.model.UserPlan; // Importe
+import com.projects.wtg.model.UserPlanId; // Importe
+import com.projects.wtg.repository.PlanRepository; // Importe
+import java.time.LocalDateTime; // Importe
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -26,10 +33,12 @@ public class CustomOidcUserService extends OidcUserService {
 
     private final UserRepository userRepository;
     private final AccountRepository accountRepository;
+    private final PlanRepository planRepository;
 
-    public CustomOidcUserService(UserRepository userRepository, AccountRepository accountRepository) {
+    public CustomOidcUserService(UserRepository userRepository, AccountRepository accountRepository, PlanRepository planRepository) {
         this.userRepository = userRepository;
         this.accountRepository = accountRepository;
+        this.planRepository = planRepository;
     }
 
     @Override
@@ -56,13 +65,11 @@ public class CustomOidcUserService extends OidcUserService {
             Account account = existingAccount.get();
             user = account.getUser();
 
-            // Lógica de atualização
             user.setFirstName(given_name);
             user.setFullName(family_name);
             user.setPictureUrl(picture);
             account.setLoginSub(sub);
             account.setLoginProvider(provider);
-            // ... outros campos de atualização
 
         } else {
             logger.info(">>> Nenhum usuário encontrado. Criando novo usuário...");
@@ -81,15 +88,26 @@ public class CustomOidcUserService extends OidcUserService {
             account.setCreatedAt(LocalDateTime.now());
             account.setUpdatedAt(LocalDateTime.now());
 
-            // Relacionamento bidirecional
             user.setAccount(account);
-            account.setUser(user);
         }
 
-        // LINHA CRÍTICA QUE ESTAVA FALTANDO
         userRepository.save(user);
 
         logger.info(">>> Dados do usuário OIDC salvos/atualizados com sucesso!");
         return oidcUser;
+    }
+    private void assignFreePlanToUser(User user) {
+        Plan freePlan = planRepository.findByType(PlanType.FREE)
+                .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
+
+        UserPlan userPlan = UserPlan.builder()
+                .id(new UserPlanId(user.getId(), freePlan.getId()))
+                .user(user)
+                .plan(freePlan)
+                .status(PlanStatus.ACTIVE)
+                .started_at(LocalDateTime.now())
+                .build();
+
+        user.getUserPlans().add(userPlan);
     }
 }

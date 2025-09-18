@@ -31,4 +31,8 @@ public class UserPlan { // Renomeado de User_Plan
 
     private LocalDateTime started_at;
     private LocalDateTime finish_at;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status")
+    private PlanStatus status;
 }

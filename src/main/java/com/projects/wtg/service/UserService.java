@@ -2,17 +2,15 @@ package com.projects.wtg.service;
 
 import com.projects.wtg.dto.UserRegistrationDto;
 import com.projects.wtg.exception.EmailAlreadyExistsException;
-import com.projects.wtg.model.Account;
-import com.projects.wtg.model.Promotion;
-import com.projects.wtg.model.User;
+import com.projects.wtg.model.*;
 import com.projects.wtg.repository.AccountRepository;
+import com.projects.wtg.repository.PlanRepository;
 import com.projects.wtg.repository.UserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.regex.Pattern;
 
 @Service
@@ -21,28 +19,29 @@ public class UserService {
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PlanRepository planRepository;
+
     private static final Pattern STRONG_PASSWORD_PATTERN =
             Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$");
 
-
-    public UserService (UserRepository userRepository, AccountRepository accountRepository, PasswordEncoder passwordEncoder){
+    public UserService(UserRepository userRepository, AccountRepository accountRepository, PasswordEncoder passwordEncoder, PlanRepository planRepository) {
         this.userRepository = userRepository;
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
+        this.planRepository = planRepository;
     }
 
     @Transactional
-    public User createUserWithAccount(UserRegistrationDto userRegistrationDto){
-        // Validação: Verifique se o e-mail já existe
+    public User createUserWithAccount(UserRegistrationDto userRegistrationDto) {
         accountRepository.findByEmail(userRegistrationDto.getEmail())
                 .ifPresent(account -> {
-                    throw new EmailAlreadyExistsException("Email já cadastrado!");
+                    throw new EmailAlreadyExistsException("Este e-mail já está cadastrado. Por favor, faça o login.");
                 });
-        // 2. Valida a força da senha
+
         if (!isPasswordStrong(userRegistrationDto.getPassword())) {
             throw new IllegalArgumentException("A senha não atende aos critérios de segurança (mínimo 8 caracteres, com maiúscula, minúscula, número e caractere especial).");
         }
-        // 3. Verifica se as senhas coincidem
+
         if (!userRegistrationDto.getPassword().equals(userRegistrationDto.getConfirmPassword())) {
             throw new IllegalArgumentException("As senhas não coincidem.");
         }
@@ -50,19 +49,34 @@ public class UserService {
         User user = new User();
         user.setFullName(userRegistrationDto.getFullName());
         user.setFirstName(userRegistrationDto.getFirstName());
-        user.setPictureUrl(userRegistrationDto.getPictureUrl());
-        user.setCreatedAt(LocalDateTime.now());
-        user.setCreatedAt(LocalDateTime.now());
-        user.setBirthday(userRegistrationDto.getBirthday());
-        user.setActive(true);
 
         Account account = new Account();
         account.setUserName(userRegistrationDto.getUserName());
         account.setEmail(userRegistrationDto.getEmail());
-
         account.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
+
         user.setAccount(account);
+
+        assignFreePlanToUser(user);
+
         return userRepository.save(user);
+    }
+
+    private void assignFreePlanToUser(User user) {
+        Plan freePlan = planRepository.findByType(PlanType.FREE)
+                .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
+
+        // O ID do usuário ainda é nulo aqui, pois ele não foi salvo.
+        // O JPA/Hibernate gerencia a chave composta quando salvamos o User com cascade.
+        UserPlan userPlan = UserPlan.builder()
+                .id(new UserPlanId(null, freePlan.getId())) // Deixe o ID do usuário como nulo por enquanto
+                .user(user)
+                .plan(freePlan)
+                .status(PlanStatus.ACTIVE)
+                .started_at(LocalDateTime.now())
+                .build();
+
+        user.getUserPlans().add(userPlan);
     }
 
     private boolean isPasswordStrong(String password) {
@@ -72,29 +86,5 @@ public class UserService {
         return STRONG_PASSWORD_PATTERN.matcher(password).matches();
     }
 
-    public User updateUserWithAccount(Long userId, User newUserData, Account newAccountData, List<Promotion> promotions){
-        return userRepository.findById(userId).map(user->{
-                user.setBirthday(newUserData.getBirthday());
-                user.setPhone(newUserData.getPhone());
-                user.setFirstName(newUserData.getFirstName());
-                user.setFullName(newUserData.getFullName());
-                user.setPromotions(promotions);
-
-                Account account = user.getAccount();
-                if(account == null){
-                    account = newAccountData;
-                    account.setUser(user);
-                    user.setAccount(account);
-                }else{
-                    account.setUserName(newAccountData.getUserName());
-                    account.setEmail(newAccountData.getEmail());
-                    account.setSecondEmail(newAccountData.getSecondEmail());
-                    account.setPassword(newAccountData.getPassword());
-                    account.setConfirmPassword(newAccountData.getConfirmPassword());
-                }
-
-                return userRepository.save(user);
-
-        }).orElseThrow(()->new RuntimeException("Usuário não encontrado"));
-    }
+    // Outros métodos do seu serviço podem vir aqui...
 }

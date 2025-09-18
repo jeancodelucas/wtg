@@ -8,6 +8,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -48,7 +49,12 @@ public class User {
     @JsonManagedReference
     @ToString.Exclude
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Promotion> promotions;
+    @Builder.Default // Garante que a lista seja inicializada ao usar o Builder
+    private List<Promotion> promotions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<UserPlan> userPlans = new ArrayList<>();
 
     // Helper method para manter o relacionamento bidirecional consistente
     public void setAccount(Account account) {
