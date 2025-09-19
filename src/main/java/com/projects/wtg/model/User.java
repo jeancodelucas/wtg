@@ -38,6 +38,9 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "user_type")
+    private UserType userType;
+
     private String pictureUrl;
 
     @JsonManagedReference

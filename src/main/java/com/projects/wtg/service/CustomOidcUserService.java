@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 public class CustomOidcUserService extends OidcUserService {
@@ -35,58 +34,48 @@ public class CustomOidcUserService extends OidcUserService {
     @Override
     @Transactional
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
-        logger.info(">>> Método OIDC loadUser iniciado. Buscando informações do usuário...");
         OidcUser oidcUser = super.loadUser(userRequest);
         Map<String, Object> attributes = oidcUser.getAttributes();
-
         String email = (String) attributes.get("email");
-        logger.info(">>> Email do usuário OIDC: {}", email);
 
-        String given_name = (String) attributes.get("given_name");
-        String family_name = (String) attributes.get("family_name");
-        String picture = (String) attributes.get("picture");
-        String provider = userRequest.getClientRegistration().getRegistrationId();
-        String sub = (String) attributes.get("sub");
+        // Refatorado para usar orElseGet, que é mais limpo
+        User user = accountRepository.findByEmail(email)
+                .map(Account::getUser)
+                .orElseGet(() -> createNewSsoUser(attributes, userRequest.getClientRegistration().getRegistrationId()));
 
-        Optional<Account> existingAccount = accountRepository.findByEmail(email);
-        User user;
-
-        if (existingAccount.isPresent()) {
-            logger.info(">>> Usuário existente encontrado. Atualizando dados...");
-            Account account = existingAccount.get();
-            user = account.getUser();
-
-            user.setFirstName(given_name);
-            user.setFullName(family_name);
-            user.setPictureUrl(picture);
-            account.setLoginSub(sub);
-            account.setLoginProvider(provider);
-
-        } else {
-            logger.info(">>> Nenhum usuário encontrado. Criando novo usuário...");
-            user = new User();
-            user.setFirstName(given_name);
-            user.setFullName(family_name);
-            user.setPictureUrl(picture);
-            // CORREÇÃO: Removemos o set manual de createdAt e updatedAt. O JPA Auditing fará isso.
-
-            Account account = new Account();
-            account.setEmail(email);
-            account.setUserName(email);
-            account.setLoginSub(sub);
-            account.setLoginProvider(provider);
-            // CORREÇÃO: Removemos o set manual de createdAt e updatedAt.
-
-            user.setAccount(account);
-
-            // CORREÇÃO: Adicionando a atribuição do plano gratuito para novos usuários SSO.
-            assignFreePlanToUser(user);
-        }
+        updateSsoUserData(user, attributes);
 
         userRepository.save(user);
-
-        logger.info(">>> Dados do usuário OIDC salvos/atualizados com sucesso!");
+        logger.info(">>> Dados do usuário OIDC (email: {}) salvos/atualizados com sucesso!", email);
         return oidcUser;
+    }
+
+    // Método privado para criar um novo usuário SSO
+    private User createNewSsoUser(Map<String, Object> attributes, String provider) {
+        logger.info(">>> Nenhum usuário encontrado para o e-mail: {}. Criando novo usuário...", attributes.get("email"));
+        User user = new User();
+
+        Account account = new Account();
+        account.setEmail((String) attributes.get("email"));
+        account.setUserName((String) attributes.get("email"));
+        account.setLoginProvider(provider);
+        account.setActive(true); // Define a conta como ativa
+
+        user.setAccount(account);
+
+        // CORREÇÃO: Adicionando a atribuição do plano gratuito para novos usuários SSO.
+        assignFreePlanToUser(user);
+        return user;
+    }
+
+    // Método privado para atualizar os dados do usuário SSO
+    private void updateSsoUserData(User user, Map<String, Object> attributes) {
+        user.setFirstName((String) attributes.get("given_name"));
+        user.setFullName((String) attributes.get("family_name"));
+        user.setPictureUrl((String) attributes.get("picture"));
+        if (user.getAccount() != null) {
+            user.getAccount().setLoginSub((String) attributes.get("sub"));
+        }
     }
 
     private void assignFreePlanToUser(User user) {

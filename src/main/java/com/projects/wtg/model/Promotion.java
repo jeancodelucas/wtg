@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.LastModifiedDate; // Importe
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
@@ -25,14 +25,16 @@ public class Promotion {
     private String description;
     private boolean free;
     private String obs;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    // CORREÇÃO: A anotação correta para este campo é @LastModifiedDate
     @LastModifiedDate
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    //relacionamento de muitos para um com user.
     @JsonBackReference
     @ToString.Exclude
     @ManyToOne(fetch = FetchType.LAZY)

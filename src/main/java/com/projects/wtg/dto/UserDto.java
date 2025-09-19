@@ -2,6 +2,7 @@ package com.projects.wtg.dto;
 
 import com.projects.wtg.model.PlanStatus;
 import com.projects.wtg.model.User;
+import com.projects.wtg.model.UserType;
 import lombok.Data;
 
 import java.util.Optional;
@@ -16,6 +17,7 @@ public class UserDto {
     private String email;
     private Boolean active; // <-- CAMPO QUE ESTAVA FALTANDO
     private PlanDto activePlan;
+    private UserType userType;
 
     public UserDto(User user) {
         this.id = user.getId();
@@ -23,6 +25,7 @@ public class UserDto {
         this.fullName = user.getFullName();
         this.phone = user.getPhone();
         this.pictureUrl = user.getPictureUrl();
+        this.userType = user.getUserType();
 
         if (user.getAccount() != null) {
             this.email = user.getAccount().getEmail();

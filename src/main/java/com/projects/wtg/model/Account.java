@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.LastModifiedDate; // Importe
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
@@ -30,6 +30,7 @@ public class Account {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // CORREÇÃO: A anotação correta para este campo é @LastModifiedDate
     @LastModifiedDate
     @Column(nullable = false)
     private LocalDateTime updatedAt;
@@ -40,7 +41,6 @@ public class Account {
     private String locale;
     private String loginSub;
 
-    // ADICIONADO A ESTA CLASSE
     private Boolean active;
 
     @JsonBackReference
