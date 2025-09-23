@@ -115,7 +115,7 @@ public class UserService {
         return STRONG_PASSWORD_PATTERN.matcher(password).matches();
     }
 
-    @Transactional(readOnly = true) // readOnly = true é uma otimização para consultas
+    @Transactional(readOnly = true)
     public User findUserByEmail(String email) {
         return accountRepository.findByEmailWithUserAndPlans(email)
                 .map(Account::getUser)

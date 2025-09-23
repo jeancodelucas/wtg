@@ -47,5 +47,12 @@ public class UserDto {
                         .collect(Collectors.toList());
             }
         }
+        if (user.getUserPlans() != null) {
+            Optional<PlanDto> activePlanDto = user.getUserPlans().stream()
+                    .filter(up -> up.getPlanStatus() == PlanStatus.ACTIVE)
+                    .findFirst()
+                    .map(PlanDto::new);
+            this.activePlan = activePlanDto.orElse(null);
+        }
     }
 }
