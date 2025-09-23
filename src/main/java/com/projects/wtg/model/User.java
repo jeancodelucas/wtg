@@ -69,4 +69,9 @@ public class User {
         }
         this.account = account;
     }
+
+    public void addPromotion(Promotion promotion) {
+        this.promotions.add(promotion);
+        promotion.setUser(this);
+    }
 }
