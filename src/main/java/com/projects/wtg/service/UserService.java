@@ -7,6 +7,8 @@ import com.projects.wtg.repository.AccountRepository;
 import com.projects.wtg.repository.PlanRepository;
 import com.projects.wtg.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.context.annotation.Lazy; // 1. Importe a anotação @Lazy
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,7 +38,19 @@ public class UserService {
     }
 
     @Transactional
-    public User createUserWithAccount(UserRegistrationDto userRegistrationDto) {
+    public User createUserWithAccount(UserRegistrationDto userRegistrationDto, Authentication authentication) {
+        // REGRA DE ADMIN: Se um planId é fornecido, verifica se o autor da requisição é admin.
+        if (userRegistrationDto.getPlanId() != null) {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
+            }
+            String adminEmail = authentication.getName();
+            User adminUser = this.findUserByEmail(adminEmail); // Usa o método existente na classe
+            if (adminUser.getUserType() != UserType.ADMIN) {
+                throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
+            }
+        }
+
         accountRepository.findByEmail(userRegistrationDto.getEmail())
                 .ifPresent(account -> {
                     throw new EmailAlreadyExistsException("Este e-mail já está cadastrado. Por favor, faça o login.");
@@ -61,13 +75,13 @@ public class UserService {
         account.setActive(true);
 
         user.setAccount(account);
-        assignFreePlanToUser(user);
 
         if (userRegistrationDto.getPlanId() != null) {
             assignSpecificPlanToUser(user, userRegistrationDto.getPlanId());
         } else {
-            assignFreePlanToUser(user); // Comportamento padrão
+            assignFreePlanToUser(user);
         }
+
         return userRepository.save(user);
     }
 

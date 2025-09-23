@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 @RestController
 @RequestMapping("/api/users")
@@ -21,8 +22,8 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserDto> registerUser(@Valid @RequestBody UserRegistrationDto registrationDto) {
-        User createdUser = userService.createUserWithAccount(registrationDto);
+    public ResponseEntity<UserDto> registerUser(@Valid @RequestBody UserRegistrationDto registrationDto, Authentication authentication) {
+        User createdUser = userService.createUserWithAccount(registrationDto, authentication);
         UserDto userDto = new UserDto(createdUser);
         return new ResponseEntity<>(userDto, HttpStatus.CREATED);
     }
