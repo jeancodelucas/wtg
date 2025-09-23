@@ -1,6 +1,7 @@
 package com.projects.wtg.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -34,11 +35,16 @@ public class Promotion {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    // --- MAPEAMENTO CORRIGIDO E FINAL ---
-    @Column(name = "allow_user_active_promotion") // Garante o mapeamento para o nome correto da coluna
+    @Column(name = "allow_user_active_promotion")
     private Boolean allowUserActivePromotion;
 
     private Boolean active;
+
+    // --- CORREÇÃO: ADICIONANDO O LADO "DONO" DA RELAÇÃO ---
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "address_id", referencedColumnName = "id")
+    @JsonManagedReference
+    private Address address;
 
     @JsonBackReference
     @ToString.Exclude

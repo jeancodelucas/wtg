@@ -20,20 +20,16 @@ public class Address {
     private Long id;
 
     private String address;
-
     private Integer number;
-
     private String complement;
-
     private String obs;
-
     private String reference;
 
     @Column(name = "postal_code")
     private String postalCode;
 
-    // Relacionamento 1-1 com Promotion (lado inverso)
+    // Lado inverso da relação, mapeado pelo campo "address" na entidade Promotion
     @OneToOne(mappedBy = "address")
-    @JsonBackReference // Evita loop infinito na serialização JSON
+    @JsonBackReference
     private Promotion promotion;
 }

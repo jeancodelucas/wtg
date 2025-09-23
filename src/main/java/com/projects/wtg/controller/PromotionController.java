@@ -1,7 +1,7 @@
 package com.projects.wtg.controller;
 
-import com.projects.wtg.dto.PromotionDto;
-import com.projects.wtg.dto.PromotionUpdateResponseDto;
+import com.projects.wtg.dto.PromotionEditDto;
+import com.projects.wtg.dto.PromotionEditResponseDto;
 import com.projects.wtg.service.PromotionService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -18,15 +18,15 @@ public class PromotionController {
         this.promotionService = promotionService;
     }
 
-    // Usamos PUT para atualizações completas da entidade e o ID na URL, que é mais RESTful
+    // Usamos PUT para atualizações, pois o cliente envia o estado desejado do recurso
     @PutMapping("/{id}/edit")
-    public ResponseEntity<PromotionUpdateResponseDto> editPromotion(
+    public ResponseEntity<PromotionEditResponseDto> editPromotion(
             @PathVariable Long id,
-            @Valid @RequestBody PromotionDto promotionDto,
+            @Valid @RequestBody PromotionEditDto promotionDto,
             Authentication authentication) {
 
         String userEmail = authentication.getName();
-        PromotionUpdateResponseDto response = promotionService.updatePromotion(id, promotionDto, userEmail);
+        PromotionEditResponseDto response = promotionService.editPromotion(id, promotionDto, userEmail);
 
         return ResponseEntity.ok(response);
     }

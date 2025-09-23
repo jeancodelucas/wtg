@@ -1,7 +1,9 @@
 package com.projects.wtg.service;
 
+import com.projects.wtg.dto.PlanDto;
 import com.projects.wtg.dto.PromotionDto;
-import com.projects.wtg.dto.PromotionUpdateResponseDto;
+import com.projects.wtg.dto.PromotionEditDto;
+import com.projects.wtg.dto.PromotionEditResponseDto;
 import com.projects.wtg.model.*;
 import com.projects.wtg.repository.AccountRepository;
 import com.projects.wtg.repository.PromotionRepository;
@@ -12,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 @Service
 public class PromotionService {
@@ -28,57 +29,54 @@ public class PromotionService {
     }
 
     @Transactional
-    public PromotionUpdateResponseDto updatePromotion(Long promotionId, PromotionDto promotionDto, String userEmail) {
-        // Busca o usuário logado
+    public PromotionEditResponseDto editPromotion(Long promotionId, PromotionEditDto dto, String userEmail) {
         Account account = accountRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
         User user = account.getUser();
 
-        // Busca a promoção específica do usuário para garantir que ele só edite o que é dele
         Promotion promotion = promotionRepository.findByIdAndUser(promotionId, user)
                 .orElseThrow(() -> new EntityNotFoundException("Promoção com ID " + promotionId + " não encontrada ou não pertence a este usuário."));
 
-        // 1. Captura o UserPlan do usuário
         UserPlan userPlan = userPlanRepository.findActivePlanByUser(user)
                 .orElseThrow(() -> new IllegalStateException("Usuário não possui plano ativo."));
 
         LocalDateTime planStartedAt = userPlan.getStartedAt();
 
-        // 2. Verifica a permissão para ativar a promoção
+        // Atualiza os campos básicos
+        updatePromotionFields(promotion, dto);
+
         if (Boolean.TRUE.equals(promotion.getAllowUserActivePromotion())) {
-            // Se a permissão for true, atualiza todos os campos, incluindo o 'active'
-            updatePromotionFields(promotion, promotionDto);
-            promotion.setActive(promotionDto.getActive());
-
+            promotion.setActive(dto.getActive());
             Promotion updatedPromotion = promotionRepository.save(promotion);
-            return new PromotionUpdateResponseDto(new PromotionDto(updatedPromotion), "Promoção atualizada com sucesso.", null);
+            return PromotionEditResponseDto.builder()
+                    .promotion(new PromotionDto(updatedPromotion))
+                    .message("Promoção atualizada com sucesso.")
+                    .build();
+        }
 
-        } else if (Boolean.FALSE.equals(promotionDto.getActive())) {
-            // Se a permissão for false, mas o usuário estiver tentando desativar, permita.
-            updatePromotionFields(promotion, promotionDto);
-            promotion.setActive(false);
-
-            Promotion updatedPromotion = promotionRepository.save(promotion);
-            return new PromotionUpdateResponseDto(new PromotionDto(updatedPromotion), "Promoção desativada.", null);
-
-        } else {
-            // Se a permissão for false e o usuário estiver tentando ATIVAR
-            updatePromotionFields(promotion, promotionDto);
-            // O campo 'active' NÃO é atualizado
-
-            Promotion updatedPromotion = promotionRepository.save(promotion);
+        if (Boolean.TRUE.equals(dto.getActive())) { // Tentando ativar sem permissão
             String message = "Promoção atualizada, mas não pôde ser reativada.";
-
             if (userPlan.getPlan().getType() == PlanType.FREE) {
-                LocalDateTime nextActivationDate = planStartedAt.plus(7, ChronoUnit.DAYS);
+                LocalDateTime nextActivationDate = planStartedAt.plusDays(7);
                 message = "A próxima ativação só pode ser feita após " + nextActivationDate.toLocalDate();
             }
-
-            return new PromotionUpdateResponseDto(new PromotionDto(updatedPromotion), message, null);
+            return PromotionEditResponseDto.builder()
+                    .promotion(new PromotionDto(promotion))
+                    .message(message)
+                    .userPlan(new PlanDto(userPlan))
+                    .build();
         }
+
+        // Se a permissão for false e o usuário estiver desativando (ou mantendo desativado)
+        promotion.setActive(false);
+        Promotion updatedPromotion = promotionRepository.save(promotion);
+        return PromotionEditResponseDto.builder()
+                .promotion(new PromotionDto(updatedPromotion))
+                .message("Promoção desativada.")
+                .build();
     }
 
-    private void updatePromotionFields(Promotion promotion, PromotionDto dto) {
+    private void updatePromotionFields(Promotion promotion, PromotionEditDto dto) {
         promotion.setTitle(dto.getTitle());
         promotion.setDescription(dto.getDescription());
         promotion.setFree(dto.isFree());
