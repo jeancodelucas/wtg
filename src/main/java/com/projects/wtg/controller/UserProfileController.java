@@ -38,4 +38,11 @@ public class UserProfileController {
         userService.deleteUserByEmail(userEmail);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/user-info")
+    public ResponseEntity<UserDto> getUserInfo(Authentication authentication) {
+        String userEmail = authentication.getName();
+        User user = userService.findUserByEmail(userEmail);
+        return ResponseEntity.ok(new UserDto(user));
+    }
 }

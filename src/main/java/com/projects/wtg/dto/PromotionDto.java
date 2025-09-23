@@ -13,6 +13,7 @@ public class PromotionDto {
     private boolean free;
     private String obs;
     private Boolean active;
+    private AddressDto address;
 
     // Construtor para facilitar a conversão da entidade para DTO
     public PromotionDto(Promotion promotion) {
@@ -21,5 +22,8 @@ public class PromotionDto {
         this.free = promotion.isFree();
         this.obs = promotion.getObs();
         this.active = promotion.getActive();
+        if (promotion.getAddress() != null) {
+            this.address = new AddressDto(promotion.getAddress());
+        }
     }
 }

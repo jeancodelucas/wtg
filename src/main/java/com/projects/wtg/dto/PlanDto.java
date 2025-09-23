@@ -16,6 +16,7 @@ public class PlanDto {
     private PlanStatus status;
     private LocalDateTime startedAt;
     private LocalDateTime finishAt;
+    private Boolean paymentMade;
 
     // Construtor que converte a entidade de relação UserPlan para este DTO
     public PlanDto(UserPlan userPlan) {
@@ -25,5 +26,6 @@ public class PlanDto {
         this.status = userPlan.getPlanStatus();
         this.startedAt = userPlan.getStartedAt();
         this.finishAt = userPlan.getFinishAt();
+        this.paymentMade = userPlan.getPaymentMade();
     }
 }
