@@ -40,8 +40,10 @@ public class UserRegistrationDto {
     @NotBlank(message = "A confirmação de senha não pode estar em branco")
     private String confirmPassword;
 
+    private Long planId;
     private boolean emailVerified;
     private String locale;
     private String loginSub;
     private String loginProvider;
+
 }

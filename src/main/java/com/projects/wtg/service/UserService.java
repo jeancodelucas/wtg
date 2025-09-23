@@ -62,7 +62,30 @@ public class UserService {
 
         user.setAccount(account);
         assignFreePlanToUser(user);
+
+        if (userRegistrationDto.getPlanId() != null) {
+            assignSpecificPlanToUser(user, userRegistrationDto.getPlanId());
+        } else {
+            assignFreePlanToUser(user); // Comportamento padrão
+        }
         return userRepository.save(user);
+    }
+
+    private void assignSpecificPlanToUser(User user, Long planId) {
+        LocalDateTime now = LocalDateTime.now();
+        Plan planToAssign = planRepository.findById(planId)
+                .orElseThrow(() -> new EntityNotFoundException("Plano com ID " + planId + " não encontrado."));
+
+        UserPlan newUserPlan = UserPlan.builder()
+                .id(new UserPlanId(null, planToAssign.getId()))
+                .user(user)
+                .plan(planToAssign)
+                .planStatus(PlanStatus.ACTIVE)
+                .startedAt(now)
+                .build();
+
+        setFinishAtByPlanType(newUserPlan, now);
+        user.getUserPlans().add(newUserPlan);
     }
 
     @Transactional
@@ -113,6 +136,26 @@ public class UserService {
             return false;
         }
         return STRONG_PASSWORD_PATTERN.matcher(password).matches();
+    }
+
+    private void setFinishAtByPlanType(UserPlan userPlan, LocalDateTime now) {
+        if (now == null) {
+            userPlan.setFinishAt(null);
+            return;
+        }
+        switch (userPlan.getPlan().getType()) {
+            case FREE:
+                userPlan.setFinishAt(now.plusHours(24));
+                break;
+            case MONTHLY:
+                userPlan.setFinishAt(now.plusDays(30));
+                break;
+            case PARTNER:
+                userPlan.setFinishAt(null);
+                break;
+            default:
+                break;
+        }
     }
 
     @Transactional(readOnly = true)
