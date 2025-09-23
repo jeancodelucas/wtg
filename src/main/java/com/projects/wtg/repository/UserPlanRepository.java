@@ -17,7 +17,7 @@ public interface UserPlanRepository extends JpaRepository<UserPlan, UserPlanId> 
             "WHERE p.type = :planType AND up.planStatus = :planStatus")
     List<UserPlan> findAllByPlanTypeAndPlanStatus(PlanType planType, PlanStatus planStatus);
 
-    // buscar o plano ativo de um usuário específico
-    @Query("SELECT up FROM UserPlan up JOIN FETCH up.plan WHERE up.user = :user AND up.planStatus = 'ACTIVE'")
-    Optional<UserPlan> findActivePlanByUser(@Param("user") User user);
+    // Apenas este método de busca é necessário.
+    @Query("SELECT up FROM UserPlan up JOIN FETCH up.plan WHERE up.user = :user AND up.planStatus = :status")
+    Optional<UserPlan> findActivePlanByUser(@Param("user") User user, @Param("status") PlanStatus status);
 }

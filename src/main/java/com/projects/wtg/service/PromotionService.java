@@ -3,10 +3,7 @@ package com.projects.wtg.service;
 import com.projects.wtg.dto.*;
 import com.projects.wtg.exception.PromotionAlreadyExistsException;
 import com.projects.wtg.model.*;
-import com.projects.wtg.repository.AccountRepository;
-import com.projects.wtg.repository.PromotionRepository;
-import com.projects.wtg.repository.UserPlanRepository;
-import com.projects.wtg.repository.UserRepository;
+import com.projects.wtg.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -14,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 
 @Service
 public class PromotionService {
@@ -22,15 +20,16 @@ public class PromotionService {
     private final AccountRepository accountRepository;
     private final UserPlanRepository userPlanRepository;
     private final UserRepository userRepository;
+    private final PlanRepository planRepository;
 
-    public PromotionService(PromotionRepository promotionRepository, AccountRepository accountRepository, UserPlanRepository userPlanRepository, UserRepository userRepository) {
+    public PromotionService(PromotionRepository promotionRepository, AccountRepository accountRepository, UserPlanRepository userPlanRepository, UserRepository userRepository, PlanRepository planRepository) {
         this.promotionRepository = promotionRepository;
         this.accountRepository = accountRepository;
         this.userPlanRepository = userPlanRepository;
         this.userRepository = userRepository;
+        this.planRepository = planRepository;
     }
 
-    // --- CORREÇÃO: A assinatura do método agora usa o DTO correto ---
     @Transactional
     public User createPromotion(CreatePromotionRequestDto dto, String userEmail) {
         Account account = accountRepository.findByEmailWithUserAndPlans(userEmail)
@@ -41,6 +40,68 @@ public class PromotionService {
             throw new PromotionAlreadyExistsException("Não é possível criar um novo evento, pois já existe um evento vinculado a este usuário.");
         }
 
+        Promotion promotion = buildPromotionFromDto(dto);
+        user.addPromotion(promotion);
+
+        if (Boolean.TRUE.equals(dto.getActive())) {
+            handleUserPlanActivation(user);
+        }
+
+        return userRepository.save(user);
+    }
+
+    private void handleUserPlanActivation(User user) {
+        // Busca o plano que está explicitamente marcado como ATIVO
+        Optional<UserPlan> activeUserPlanOpt = userPlanRepository.findActivePlanByUser(user, PlanStatus.ACTIVE);
+        LocalDateTime now = LocalDateTime.now();
+
+        if (activeUserPlanOpt.isEmpty()) {
+            // REGRA 1.1: Se não existe plano ATIVO, cria um novo com o plano FREE.
+            Plan freePlan = planRepository.findByType(PlanType.FREE)
+                    .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
+
+            UserPlan newUserPlan = UserPlan.builder()
+                    .id(new UserPlanId(user.getId(), freePlan.getId()))
+                    .user(user)
+                    .plan(freePlan)
+                    .planStatus(PlanStatus.ACTIVE)
+                    .paymentMade(true)
+                    .startedAt(now)
+                    .finishAt(now.plusHours(24))
+                    .build();
+            user.getUserPlans().add(newUserPlan);
+        } else {
+            // REGRAS 1.2 e 1.3: Se já existe um plano ATIVO.
+            UserPlan activeUserPlan = activeUserPlanOpt.get();
+            if (activeUserPlan.getStartedAt() == null && activeUserPlan.getFinishAt() == null) {
+                // REGRA 1.2
+                activeUserPlan.setStartedAt(now);
+                setFinishAtByPlanType(activeUserPlan, now);
+            } else if (activeUserPlan.getStartedAt() != null && activeUserPlan.getFinishAt() == null) {
+                // REGRA 1.3
+                setFinishAtByPlanType(activeUserPlan, now);
+            }
+            userPlanRepository.save(activeUserPlan);
+        }
+    }
+
+    private void setFinishAtByPlanType(UserPlan userPlan, LocalDateTime now) {
+        switch (userPlan.getPlan().getType()) {
+            case FREE:
+                userPlan.setFinishAt(now.plusHours(24));
+                break;
+            case MONTHLY:
+                userPlan.setFinishAt(now.plusDays(30));
+                break;
+            case PARTNER:
+                // Não faz nada com finishAt, deixando-o nulo
+                break;
+            default:
+                break;
+        }
+    }
+
+    private Promotion buildPromotionFromDto(CreatePromotionRequestDto dto) {
         Promotion promotion = new Promotion();
         promotion.setTitle(dto.getTitle());
         promotion.setDescription(dto.getDescription());
@@ -58,31 +119,8 @@ public class PromotionService {
             address.setPostalCode(dto.getAddress().getPostalCode());
             address.setObs(dto.getAddress().getObs());
         }
-
         promotion.setAddress(address);
-
-        if (Boolean.TRUE.equals(dto.getActive())) {
-            UserPlan userPlan = userPlanRepository.findActivePlanByUser(user)
-                    .orElseThrow(() -> new IllegalStateException("Usuário não possui plano ativo."));
-
-            LocalDateTime now = LocalDateTime.now();
-
-            switch (userPlan.getPlan().getType()) {
-                case FREE:
-                    userPlan.setStartedAt(now);
-                    userPlan.setFinishAt(now.plusHours(24));
-                    break;
-                case MONTHLY:
-                    userPlan.setFinishAt(now.plusMonths(1));
-                    break;
-                default:
-                    break;
-            }
-            userPlanRepository.save(userPlan);
-        }
-
-        user.addPromotion(promotion);
-        return userRepository.save(user);
+        return promotion;
     }
 
     @Transactional
@@ -94,7 +132,7 @@ public class PromotionService {
         Promotion promotion = promotionRepository.findByIdAndUser(promotionId, user)
                 .orElseThrow(() -> new EntityNotFoundException("Promoção com ID " + promotionId + " não encontrada ou não pertence a este usuário."));
 
-        UserPlan userPlan = userPlanRepository.findActivePlanByUser(user)
+        UserPlan userPlan = userPlanRepository.findActivePlanByUser(user, PlanStatus.ACTIVE)
                 .orElseThrow(() -> new IllegalStateException("Usuário não possui plano ativo."));
 
         updatePromotionFields(promotion, dto);
