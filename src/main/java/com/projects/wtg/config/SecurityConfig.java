@@ -59,6 +59,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/register", "/api/auth/login", "/error").permitAll()
                         // Protege todos os endpoints de perfil do usuário logado
                         .requestMatchers("/api/profile/me/**").authenticated()
+                        .requestMatchers("/api/promotions/**").authenticated() // Protege os endpoints de promoção
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(oauth2 -> oauth2

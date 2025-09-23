@@ -34,7 +34,8 @@ public class Promotion {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @Column(name = "allow_user_active_promotion") // Mapeia para o nome da coluna no banco
+    // --- MAPEAMENTO CORRIGIDO E FINAL ---
+    @Column(name = "allow_user_active_promotion") // Garante o mapeamento para o nome correto da coluna
     private Boolean allowUserActivePromotion;
 
     private Boolean active;
