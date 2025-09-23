@@ -20,6 +20,7 @@ public class CreatePromotionRequestDto {
 
     private boolean free;
     private String obs;
+    private Long planId;
 
     @Valid // Valida o objeto aninhado
     @NotNull(message = "O objeto 'address' é obrigatório")
