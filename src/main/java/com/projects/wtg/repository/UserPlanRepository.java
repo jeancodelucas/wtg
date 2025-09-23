@@ -10,6 +10,8 @@ import java.util.Optional;
 
 public interface UserPlanRepository extends JpaRepository<UserPlan, UserPlanId> {
 
+    Optional<UserPlan> findTopByUser(User user);
+
     @Query("SELECT up FROM UserPlan up " +
             "JOIN FETCH up.plan p " +
             "JOIN FETCH up.user u " +
@@ -17,7 +19,6 @@ public interface UserPlanRepository extends JpaRepository<UserPlan, UserPlanId> 
             "WHERE p.type = :planType AND up.planStatus = :planStatus")
     List<UserPlan> findAllByPlanTypeAndPlanStatus(PlanType planType, PlanStatus planStatus);
 
-    // Apenas este método de busca é necessário.
     @Query("SELECT up FROM UserPlan up JOIN FETCH up.plan WHERE up.user = :user AND up.planStatus = :status")
     Optional<UserPlan> findActivePlanByUser(@Param("user") User user, @Param("status") PlanStatus status);
 }

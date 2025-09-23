@@ -10,5 +10,6 @@ public class PromotionEditDto {
     private boolean free;
     private String obs;
     private Boolean active;
+    private Long planId;
     // O campo allowUserActivePromotion não é incluído, pois é controlado pelo sistema
 }
