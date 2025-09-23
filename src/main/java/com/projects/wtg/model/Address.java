@@ -28,7 +28,7 @@ public class Address {
     @Column(name = "postal_code")
     private String postalCode;
 
-    // Lado inverso da relação, mapeado pelo campo "address" na entidade Promotion
+    // O mappedBy="address" agora funciona, pois o campo existe na classe Promotion
     @OneToOne(mappedBy = "address")
     @JsonBackReference
     private Promotion promotion;

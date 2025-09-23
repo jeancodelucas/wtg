@@ -40,11 +40,11 @@ public class Promotion {
 
     private Boolean active;
 
-    // --- CORREÇÃO: ADICIONANDO O LADO "DONO" DA RELAÇÃO ---
+    // --- CORREÇÃO: ADICIONANDO O CAMPO QUE FALTAVA ---
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "address_id", referencedColumnName = "id")
     @JsonManagedReference
-    private Address address;
+    private Address address; // Este é o campo que o mappedBy="address" estava procurando
 
     @JsonBackReference
     @ToString.Exclude
