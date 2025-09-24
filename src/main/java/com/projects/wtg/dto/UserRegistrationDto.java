@@ -1,5 +1,6 @@
 package com.projects.wtg.dto;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -46,4 +47,6 @@ public class UserRegistrationDto {
     private String loginSub;
     private String loginProvider;
 
+    @Valid
+    private PromotionDataDto promotion;
 }

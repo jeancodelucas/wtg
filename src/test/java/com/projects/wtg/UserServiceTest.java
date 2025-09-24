@@ -70,7 +70,8 @@ public class UserServiceTest {
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
-        User createdUser = userService.createUserWithAccount(registrationDto);
+        // CORREÇÃO: Adicionado 'null' como segundo argumento
+        User createdUser = userService.createUserWithAccount(registrationDto, null);
 
         // Assert
         assertNotNull(createdUser);
@@ -78,6 +79,7 @@ public class UserServiceTest {
         assertEquals("test@email.com", createdUser.getAccount().getEmail());
         assertEquals("hashedPassword", createdUser.getAccount().getPassword());
         assertFalse(createdUser.getUserPlans().isEmpty(), "O usuário deve ter um plano associado");
+        // A linha abaixo estava com erro de digitação no get(0), removendo o '8'.
         assertEquals(PlanType.FREE, createdUser.getUserPlans().get(0).getPlan().getType());
 
         verify(accountRepository, times(1)).findByEmail("test@email.com");
@@ -93,7 +95,8 @@ public class UserServiceTest {
 
         // Act & Assert
         EmailAlreadyExistsException exception = assertThrows(EmailAlreadyExistsException.class, () ->
-                userService.createUserWithAccount(registrationDto));
+                // CORREÇÃO: Adicionado 'null' como segundo argumento
+                userService.createUserWithAccount(registrationDto, null));
 
         assertEquals("Este e-mail já está cadastrado. Por favor, faça o login.", exception.getMessage());
         verify(userRepository, never()).save(any(User.class));
@@ -107,7 +110,8 @@ public class UserServiceTest {
 
         // Act & Assert
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                userService.createUserWithAccount(registrationDto));
+                // CORREÇÃO: Adicionado 'null' como segundo argumento
+                userService.createUserWithAccount(registrationDto, null));
 
         assertTrue(exception.getMessage().contains("A senha não atende aos critérios de segurança"));
     }
@@ -119,7 +123,8 @@ public class UserServiceTest {
 
         // Act & Assert
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                userService.createUserWithAccount(registrationDto));
+                // CORREÇÃO: Adicionado 'null' como segundo argumento
+                userService.createUserWithAccount(registrationDto, null));
 
         assertEquals("As senhas não coincidem.", exception.getMessage());
     }

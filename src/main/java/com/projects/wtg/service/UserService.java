@@ -1,5 +1,6 @@
 package com.projects.wtg.service;
 
+import com.projects.wtg.dto.PromotionDataDto;
 import com.projects.wtg.dto.UserRegistrationDto;
 import com.projects.wtg.exception.EmailAlreadyExistsException;
 import com.projects.wtg.model.*;
@@ -76,7 +77,42 @@ public class UserService {
 
         user.setAccount(account);
 
-        if (userRegistrationDto.getPlanId() != null) {
+        if (userRegistrationDto.getPromotion() != null) {
+            Promotion promotion = buildPromotionFromDto(userRegistrationDto.getPromotion());
+            user.addPromotion(promotion);
+
+            boolean promotionIsActive = userRegistrationDto.getPromotion().getActive();
+            Long planId = userRegistrationDto.getPlanId();
+            Plan planToAssign;
+            UserPlan newUserPlan = new UserPlan();
+
+            if (planId == null) {
+                planToAssign = planRepository.findByType(PlanType.FREE)
+                        .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
+            } else {
+                planToAssign = planRepository.findById(planId)
+                        .orElseThrow(() -> new EntityNotFoundException("Plano com ID " + planId + " não encontrado."));
+            }
+
+            newUserPlan.setId(new UserPlanId(null, planToAssign.getId()));
+            newUserPlan.setUser(user);
+            newUserPlan.setPlan(planToAssign);
+
+            if (promotionIsActive) {
+                LocalDateTime now = LocalDateTime.now();
+                newUserPlan.setStartedAt(now);
+                setFinishAtByPlanType(newUserPlan, now);
+                newUserPlan.setPlanStatus(PlanStatus.ACTIVE);
+                promotion.setAllowUserActivePromotion(true);
+            } else {
+                newUserPlan.setStartedAt(null);
+                newUserPlan.setFinishAt(null);
+                newUserPlan.setPlanStatus(PlanStatus.READYTOACTIVE);
+                promotion.setAllowUserActivePromotion(true);
+            }
+            user.getUserPlans().add(newUserPlan);
+
+        } else if (userRegistrationDto.getPlanId() != null) {
             assignSpecificPlanToUser(user, userRegistrationDto.getPlanId());
         } else {
             assignFreePlanToUser(user);
@@ -84,6 +120,28 @@ public class UserService {
 
         return userRepository.save(user);
     }
+    private Promotion buildPromotionFromDto(PromotionDataDto dto) {
+        Promotion promotion = new Promotion();
+        promotion.setTitle(dto.getTitle());
+        promotion.setDescription(dto.getDescription());
+        promotion.setFree(dto.isFree());
+        promotion.setObs(dto.getObs());
+        promotion.setActive(dto.getActive());
+
+        if (dto.getAddress() != null) {
+            Address address = new Address();
+            address.setAddress(dto.getAddress().getAddress());
+            address.setNumber(dto.getAddress().getNumber());
+            address.setComplement(dto.getAddress().getComplement());
+            address.setReference(dto.getAddress().getReference());
+            address.setPostalCode(dto.getAddress().getPostalCode());
+            address.setObs(dto.getAddress().getObs());
+            promotion.setAddress(address);
+        }
+
+        return promotion;
+    }
+
 
     private void assignSpecificPlanToUser(User user, Long planId) {
         LocalDateTime now = LocalDateTime.now();
@@ -165,7 +223,7 @@ public class UserService {
                 userPlan.setFinishAt(now.plusDays(30));
                 break;
             case PARTNER:
-                userPlan.setFinishAt(null);
+                userPlan.setFinishAt(now.plusYears(1));
                 break;
             default:
                 break;
