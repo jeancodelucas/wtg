@@ -15,6 +15,10 @@ public interface UserPlanRepository extends JpaRepository<UserPlan, UserPlanId> 
     @Query("SELECT up FROM UserPlan up WHERE up.user = :user AND (up.planStatus = 'active' OR (up.planStatus = 'paused' AND up.startedAt >= :now))")
     Optional<UserPlan> findActiveOrFuturePausedPlan(@Param("user") User user, @Param("now") LocalDateTime now);
 
+    // --- NOVO MÉTODO ADICIONADO ---
+    // Procura um plano para um usuário específico com um status específico.
+    Optional<UserPlan> findByUserAndPlanStatus(User user, PlanStatus planStatus);
+
     // Métodos antigos mantidos para outras partes do sistema
     Optional<UserPlan> findTopByUserOrderByCreatedAtDesc(User user);
 

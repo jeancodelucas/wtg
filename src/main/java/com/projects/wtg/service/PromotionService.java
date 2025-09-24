@@ -71,38 +71,41 @@ public class PromotionService {
     }
 
     private void handlePromotionActivation(User user, Promotion promotion, Boolean active, Long planId) {
-        // REGRA 1: Se 'active' for false, apenas desativa a promoção e termina a execução.
+        promotion.setActive(active);
+
         if (Boolean.FALSE.equals(active)) {
-            promotion.setActive(false);
             return;
         }
 
-        // Se 'active' for nulo ou true, continua para as próximas regras.
-        promotion.setActive(true);
         LocalDateTime now = LocalDateTime.now();
+
+        Optional<UserPlan> readyPlanOpt = userPlanRepository.findByUserAndPlanStatus(user, PlanStatus.READYTOACTIVE);
+
+        if (readyPlanOpt.isPresent()) {
+            UserPlan planToActivate = readyPlanOpt.get();
+            planToActivate.setPlanStatus(PlanStatus.ACTIVE);
+            planToActivate.setStartedAt(now);
+            setFinishAtByPlanType(planToActivate, now);
+            return;
+        }
+
         Optional<UserPlan> existingPlanOpt = userPlanRepository.findActiveOrFuturePausedPlan(user, now);
+        if (existingPlanOpt.isPresent()) {
+            return;
+        }
 
+        Plan planToAssign;
         if (planId != null) {
-            // REGRA 5: Se um planId foi enviado
-            if (existingPlanOpt.isEmpty()) {
-                // REGRA 5.1: Se não há plano válido, cria um novo com o planId fornecido.
-                Plan planToAssign = planRepository.findById(planId)
-                        .orElseThrow(() -> new EntityNotFoundException("Plano com ID " + planId + " não encontrado."));
-
-                createNewUserPlan(user, planToAssign, now);
-            }
-            // Se já existe um plano válido, não faz nada com a tabela user_plan.
+            planToAssign = planRepository.findById(planId)
+                    .orElseThrow(() -> new EntityNotFoundException("Plano com ID " + planId + " não encontrado."));
         } else {
-            // REGRA 2, 3 e 4: Se um planId NÃO foi enviado
-            if (existingPlanOpt.isEmpty()) {
-                // REGRA 4: Se não há plano válido, cria um novo plano FREE.
-                Plan freePlan = planRepository.findByType(PlanType.FREE)
-                        .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
+            planToAssign = planRepository.findByType(PlanType.FREE)
+                    .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
+        }
 
-                UserPlan newUserPlan = createNewUserPlan(user, freePlan, now);
-                newUserPlan.setFinishAt(now.plusHours(24)); // Regra específica do plano FREE
-            }
-            // REGRA 2 e 3: Se já existe um plano válido, não faz nada com a tabela user_plan.
+        UserPlan newUserPlan = createNewUserPlan(user, planToAssign, now);
+        if (planToAssign.getType() == PlanType.FREE) {
+            newUserPlan.setFinishAt(now.plusHours(24));
         }
     }
 
@@ -130,7 +133,7 @@ public class PromotionService {
                 userPlan.setFinishAt(startDate.plusDays(30));
                 break;
             case PARTNER:
-                userPlan.setFinishAt(startDate.plusYears(1)); // NOVA REGRA
+                userPlan.setFinishAt(startDate.plusYears(1));
                 break;
             default:
                 break;
@@ -158,9 +161,27 @@ public class PromotionService {
     }
 
     private void updatePromotionFields(Promotion promotion, PromotionEditDto dto) {
+        // Atualiza os campos básicos da promoção
         promotion.setTitle(dto.getTitle());
         promotion.setDescription(dto.getDescription());
         promotion.setFree(dto.isFree());
         promotion.setObs(dto.getObs());
+
+        // --- CORREÇÃO: Adiciona a lógica para atualizar o endereço ---
+        if (dto.getAddress() != null) {
+            Address address = promotion.getAddress();
+            // Se a promoção ainda não tiver um endereço, cria um novo
+            if (address == null) {
+                address = new Address();
+                promotion.setAddress(address);
+            }
+            // Atualiza os campos do endereço
+            address.setAddress(dto.getAddress().getAddress());
+            address.setNumber(dto.getAddress().getNumber());
+            address.setComplement(dto.getAddress().getComplement());
+            address.setReference(dto.getAddress().getReference());
+            address.setPostalCode(dto.getAddress().getPostalCode());
+            address.setObs(dto.getAddress().getObs());
+        }
     }
 }
