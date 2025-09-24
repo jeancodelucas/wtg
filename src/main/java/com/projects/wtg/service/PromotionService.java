@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -40,6 +41,8 @@ public class PromotionService {
         }
 
         Promotion promotion = buildPromotionFromDto(dto);
+        // Para uma nova promoção, a permissão é sempre concedida.
+        promotion.setAllowUserActivePromotion(true);
         handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
         user.addPromotion(promotion);
         return userRepository.save(user);
@@ -56,8 +59,21 @@ public class PromotionService {
 
         updatePromotionFields(promotion, dto);
 
-        // CORREÇÃO: O método handlePromotionActivation agora retorna a mensagem a ser exibida.
-        String message = handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
+        String message = "Promoção atualizada com sucesso.";
+
+        // --- CORREÇÃO: Adicionada a verificação da permissão ---
+        // Verifica se houve uma tentativa de mudar o status da promoção
+        boolean statusChangeAttempted = !Objects.equals(dto.getActive(), promotion.getActive());
+
+        if (statusChangeAttempted) {
+            if (Boolean.FALSE.equals(promotion.getAllowUserActivePromotion())) {
+                // Se a permissão for falsa, a alteração de status é bloqueada e uma mensagem é definida.
+                message += " No entanto, o status do evento não pode ser alterado no momento. Aguarde a reativação do seu plano.";
+            } else {
+                // Se a permissão for verdadeira, procede com a lógica de ativação/desativação.
+                message = handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
+            }
+        }
 
         Promotion updatedPromotion = promotionRepository.save(promotion);
         PlanDto updatedPlanDto = userPlanRepository.findTopByUserOrderByCreatedAtDesc(user).map(PlanDto::new).orElse(null);
@@ -65,7 +81,7 @@ public class PromotionService {
         return PromotionEditResponseDto.builder()
                 .promotion(new PromotionDto(updatedPromotion))
                 .userPlan(updatedPlanDto)
-                .message(message) // A mensagem agora é dinâmica
+                .message(message)
                 .build();
     }
 
@@ -77,10 +93,7 @@ public class PromotionService {
             return message;
         }
 
-        // --- LÓGICA DE ATIVAÇÃO COM VERIFICAÇÃO DE PLANO EXISTENTE ---
-
         if (planId != null) {
-            // CORREÇÃO: Verifica se o usuário já possui o plano (ativo ou agendado)
             boolean planAlreadyExists = user.getUserPlans().stream()
                     .anyMatch(up -> up.getPlan().getId().equals(planId) &&
                             (up.getPlanStatus() == PlanStatus.ACTIVE || up.getPlanStatus() == PlanStatus.READYTOACTIVE));
@@ -177,7 +190,6 @@ public class PromotionService {
         promotion.setTitle(dto.getTitle());
         promotion.setDescription(dto.getDescription());
         promotion.setFree(dto.isFree());
-        promotion.setAllowUserActivePromotion(true);
 
         Address address = new Address();
         if (dto.getAddress() != null) {
