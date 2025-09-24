@@ -32,27 +32,22 @@ public class UserDto {
 
         if (user.getAccount() != null) {
             this.email = user.getAccount().getEmail();
-            this.active = user.getAccount().getActive(); // Agora esta linha funciona
+            this.active = user.getAccount().getActive();
         }
 
-        if (user.getUserPlans() != null) {
-            Optional<PlanDto> activePlanDto = user.getUserPlans().stream()
-                    .filter(up -> up.getPlanStatus() == PlanStatus.ACTIVE)
+        // CORREÇÃO: Lógica ajustada e bloco duplicado removido.
+        // Agora, ele pega o primeiro plano encontrado, independentemente do status.
+        if (user.getUserPlans() != null && !user.getUserPlans().isEmpty()) {
+            this.activePlan = user.getUserPlans().stream()
                     .findFirst()
-                    .map(PlanDto::new);
-            this.activePlan = activePlanDto.orElse(null);
-            if (user.getPromotions() != null) {
-                this.promotions = user.getPromotions().stream()
-                        .map(PromotionDto::new)
-                        .collect(Collectors.toList());
-            }
+                    .map(PlanDto::new)
+                    .orElse(null);
         }
-        if (user.getUserPlans() != null) {
-            Optional<PlanDto> activePlanDto = user.getUserPlans().stream()
-                    .filter(up -> up.getPlanStatus() == PlanStatus.ACTIVE)
-                    .findFirst()
-                    .map(PlanDto::new);
-            this.activePlan = activePlanDto.orElse(null);
+
+        if (user.getPromotions() != null) {
+            this.promotions = user.getPromotions().stream()
+                    .map(PromotionDto::new)
+                    .collect(Collectors.toList());
         }
     }
 }

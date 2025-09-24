@@ -11,8 +11,8 @@ import java.util.Optional;
 
 public interface UserPlanRepository extends JpaRepository<UserPlan, UserPlanId> {
 
-    // --- NOVO MÉTODO PARA A REGRA ATUAL ---
-    @Query("SELECT up FROM UserPlan up WHERE up.user = :user AND (up.planStatus = 'ACTIVE' OR (up.planStatus = 'PAUSED' AND up.startedAt >= :now))")
+    // --- CORREÇÃO: Alterado 'ACTIVE' para 'active' e 'PAUSED' para 'paused' ---
+    @Query("SELECT up FROM UserPlan up WHERE up.user = :user AND (up.planStatus = 'active' OR (up.planStatus = 'paused' AND up.startedAt >= :now))")
     Optional<UserPlan> findActiveOrFuturePausedPlan(@Param("user") User user, @Param("now") LocalDateTime now);
 
     // Métodos antigos mantidos para outras partes do sistema
