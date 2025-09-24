@@ -75,9 +75,8 @@ public class UserService {
 
         user.setAccount(account);
 
-        // --- LÓGICA DE PLANO E PROMOÇÃO REATORADA E UNIFICADA ---
+        // --- LÓGICA DE PLANO E PROMOÇÃO CORRIGIDA ---
 
-        // 1. Determina qual plano será associado
         Plan planToAssign;
         if (userRegistrationDto.getPlanId() != null) {
             planToAssign = planRepository.findById(userRegistrationDto.getPlanId())
@@ -87,17 +86,14 @@ public class UserService {
                     .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
         }
 
-        // 2. Cria a associação UserPlan
         UserPlan newUserPlan = new UserPlan();
         newUserPlan.setId(new UserPlanId(null, planToAssign.getId()));
         newUserPlan.setUser(user);
         newUserPlan.setPlan(planToAssign);
 
-        // 3. Verifica se a ativação do plano deve ser imediata
         boolean activateNow = userRegistrationDto.getPromotion() != null &&
                 Boolean.TRUE.equals(userRegistrationDto.getPromotion().getActive());
 
-        // 4. Define o status e as datas com base na condição de ativação
         if (activateNow) {
             LocalDateTime now = LocalDateTime.now();
             newUserPlan.setStartedAt(now);
@@ -110,7 +106,6 @@ public class UserService {
         }
         user.getUserPlans().add(newUserPlan);
 
-        // 5. Cria e associa a promoção se os dados foram enviados
         if (userRegistrationDto.getPromotion() != null) {
             Promotion promotion = buildPromotionFromDto(userRegistrationDto.getPromotion());
             promotion.setAllowUserActivePromotion(true);

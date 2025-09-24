@@ -40,9 +40,7 @@ public class PromotionService {
         }
 
         Promotion promotion = buildPromotionFromDto(dto);
-
         handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
-
         user.addPromotion(promotion);
         return userRepository.save(user);
     }
@@ -58,7 +56,8 @@ public class PromotionService {
 
         updatePromotionFields(promotion, dto);
 
-        handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
+        // CORREÇÃO: O método handlePromotionActivation agora retorna a mensagem a ser exibida.
+        String message = handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
 
         Promotion updatedPromotion = promotionRepository.save(promotion);
         PlanDto updatedPlanDto = userPlanRepository.findTopByUserOrderByCreatedAtDesc(user).map(PlanDto::new).orElse(null);
@@ -66,47 +65,78 @@ public class PromotionService {
         return PromotionEditResponseDto.builder()
                 .promotion(new PromotionDto(updatedPromotion))
                 .userPlan(updatedPlanDto)
-                .message("Promoção atualizada com sucesso.")
+                .message(message) // A mensagem agora é dinâmica
                 .build();
     }
 
-    private void handlePromotionActivation(User user, Promotion promotion, Boolean active, Long planId) {
+    private String handlePromotionActivation(User user, Promotion promotion, Boolean active, Long planId) {
         promotion.setActive(active);
+        String message = "Promoção atualizada com sucesso.";
 
         if (Boolean.FALSE.equals(active)) {
-            return;
+            return message;
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        // --- LÓGICA DE ATIVAÇÃO COM VERIFICAÇÃO DE PLANO EXISTENTE ---
 
-        Optional<UserPlan> readyPlanOpt = userPlanRepository.findByUserAndPlanStatus(user, PlanStatus.READYTOACTIVE);
-
-        if (readyPlanOpt.isPresent()) {
-            UserPlan planToActivate = readyPlanOpt.get();
-            planToActivate.setPlanStatus(PlanStatus.ACTIVE);
-            planToActivate.setStartedAt(now);
-            setFinishAtByPlanType(planToActivate, now);
-            return;
-        }
-
-        Optional<UserPlan> existingPlanOpt = userPlanRepository.findActiveOrFuturePausedPlan(user, now);
-        if (existingPlanOpt.isPresent()) {
-            return;
-        }
-
-        Plan planToAssign;
         if (planId != null) {
-            planToAssign = planRepository.findById(planId)
-                    .orElseThrow(() -> new EntityNotFoundException("Plano com ID " + planId + " não encontrado."));
-        } else {
-            planToAssign = planRepository.findByType(PlanType.FREE)
-                    .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
-        }
+            // CORREÇÃO: Verifica se o usuário já possui o plano (ativo ou agendado)
+            boolean planAlreadyExists = user.getUserPlans().stream()
+                    .anyMatch(up -> up.getPlan().getId().equals(planId) &&
+                            (up.getPlanStatus() == PlanStatus.ACTIVE || up.getPlanStatus() == PlanStatus.READYTOACTIVE));
 
-        UserPlan newUserPlan = createNewUserPlan(user, planToAssign, now);
-        if (planToAssign.getType() == PlanType.FREE) {
-            newUserPlan.setFinishAt(now.plusHours(24));
+            if (planAlreadyExists) {
+                return "Promoção atualizada com sucesso. O plano não foi alterado pois o usuário já possui este plano ativo ou agendado.";
+            }
+
+            Plan planToAssign = planRepository.findById(planId)
+                    .orElseThrow(() -> new EntityNotFoundException("Plano com ID " + planId + " não encontrado."));
+
+            Optional<UserPlan> activePlanOpt = userPlanRepository.findByUserAndPlanStatus(user, PlanStatus.ACTIVE);
+
+            if (activePlanOpt.isPresent()) {
+                UserPlan currentActivePlan = activePlanOpt.get();
+                if (currentActivePlan.getFinishAt() == null) {
+                    return "Promoção atualizada, mas não foi possível agendar o novo plano pois o plano atual não possui data de término.";
+                }
+
+                UserPlan futurePlan = new UserPlan();
+                futurePlan.setId(new UserPlanId(null, planToAssign.getId()));
+                futurePlan.setUser(user);
+                futurePlan.setPlan(planToAssign);
+                futurePlan.setStartedAt(currentActivePlan.getFinishAt());
+                setFinishAtByPlanType(futurePlan, futurePlan.getStartedAt());
+                futurePlan.setPlanStatus(PlanStatus.READYTOACTIVE);
+                user.getUserPlans().add(futurePlan);
+
+            } else {
+                UserPlan newUserPlan = new UserPlan();
+                newUserPlan.setId(new UserPlanId(null, planToAssign.getId()));
+                newUserPlan.setUser(user);
+                newUserPlan.setPlan(planToAssign);
+                newUserPlan.setStartedAt(LocalDateTime.now());
+                setFinishAtByPlanType(newUserPlan, newUserPlan.getStartedAt());
+                newUserPlan.setPlanStatus(PlanStatus.ACTIVE);
+                user.getUserPlans().add(newUserPlan);
+            }
+        } else {
+            Optional<UserPlan> readyPlanOpt = userPlanRepository.findByUserAndPlanStatus(user, PlanStatus.READYTOACTIVE);
+            if (readyPlanOpt.isPresent()) {
+                UserPlan planToActivate = readyPlanOpt.get();
+                LocalDateTime now = LocalDateTime.now();
+                planToActivate.setPlanStatus(PlanStatus.ACTIVE);
+                planToActivate.setStartedAt(now);
+                setFinishAtByPlanType(planToActivate, now);
+            } else {
+                Optional<UserPlan> existingPlanOpt = userPlanRepository.findActiveOrFuturePausedPlan(user, LocalDateTime.now());
+                if (existingPlanOpt.isEmpty()) {
+                    Plan freePlan = planRepository.findByType(PlanType.FREE)
+                            .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
+                    createNewUserPlan(user, freePlan, LocalDateTime.now());
+                }
+            }
         }
+        return message;
     }
 
     private UserPlan createNewUserPlan(User user, Plan plan, LocalDateTime now) {
@@ -117,14 +147,16 @@ public class PromotionService {
                 .planStatus(PlanStatus.ACTIVE)
                 .startedAt(now)
                 .build();
-
         setFinishAtByPlanType(newUserPlan, now);
         user.getUserPlans().add(newUserPlan);
         return newUserPlan;
     }
 
     private void setFinishAtByPlanType(UserPlan userPlan, LocalDateTime startDate) {
-        if (startDate == null) return;
+        if (startDate == null) {
+            userPlan.setFinishAt(null);
+            return;
+        }
         switch (userPlan.getPlan().getType()) {
             case FREE:
                 userPlan.setFinishAt(startDate.plusHours(24));
@@ -161,21 +193,17 @@ public class PromotionService {
     }
 
     private void updatePromotionFields(Promotion promotion, PromotionEditDto dto) {
-        // Atualiza os campos básicos da promoção
         promotion.setTitle(dto.getTitle());
         promotion.setDescription(dto.getDescription());
         promotion.setFree(dto.isFree());
         promotion.setObs(dto.getObs());
 
-        // --- CORREÇÃO: Adiciona a lógica para atualizar o endereço ---
         if (dto.getAddress() != null) {
             Address address = promotion.getAddress();
-            // Se a promoção ainda não tiver um endereço, cria um novo
             if (address == null) {
                 address = new Address();
                 promotion.setAddress(address);
             }
-            // Atualiza os campos do endereço
             address.setAddress(dto.getAddress().getAddress());
             address.setNumber(dto.getAddress().getNumber());
             address.setComplement(dto.getAddress().getComplement());
