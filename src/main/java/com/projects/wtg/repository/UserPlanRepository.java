@@ -27,4 +27,14 @@ public interface UserPlanRepository extends JpaRepository<UserPlan, UserPlanId> 
 
     @Query("SELECT up FROM UserPlan up JOIN FETCH up.plan WHERE up.user = :user AND up.planStatus = :status")
     Optional<UserPlan> findActivePlanByUser(@Param("user") User user, @Param("status") PlanStatus status);
+
+    // --- NOVOS MÉTODOS PARA O SCHEDULER ---
+
+    // Busca todos os planos que estão ativos mas cuja data de término já passou.
+    @Query("SELECT up FROM UserPlan up JOIN FETCH up.user u LEFT JOIN FETCH u.promotions WHERE up.planStatus = com.projects.wtg.model.PlanStatus.ACTIVE AND up.finishAt <= :now")
+    List<UserPlan> findExpiredActivePlans(@Param("now") LocalDateTime now);
+
+    // Busca todos os planos que estão prontos para ativar e cuja data de início já chegou.
+    @Query("SELECT up FROM UserPlan up JOIN FETCH up.user u WHERE up.planStatus = com.projects.wtg.model.PlanStatus.READYTOACTIVE AND up.startedAt <= :now")
+    List<UserPlan> findReadyToActivatePlans(@Param("now") LocalDateTime now);
 }

@@ -1,7 +1,6 @@
 package com.projects.wtg.service;
 
 import com.projects.wtg.model.*;
-import com.projects.wtg.repository.PromotionRepository;
 import com.projects.wtg.repository.UserPlanRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +10,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class PromotionSchedulerService {
@@ -19,77 +22,121 @@ public class PromotionSchedulerService {
     private static final Logger logger = LoggerFactory.getLogger(PromotionSchedulerService.class);
 
     private final UserPlanRepository userPlanRepository;
-    private final PromotionRepository promotionRepository;
 
-    public PromotionSchedulerService(UserPlanRepository userPlanRepository, PromotionRepository promotionRepository) {
+    public PromotionSchedulerService(UserPlanRepository userPlanRepository) {
         this.userPlanRepository = userPlanRepository;
-        this.promotionRepository = promotionRepository;
     }
 
-    /**
-     * Tarefa agendada que executa a cada hora para gerenciar planos gratuitos e promoções.
-     * A expressão cron "0 0 * * * *" significa "no minuto 0 de cada hora".
-     */
     @Scheduled(cron = "0 0 * * * *")
     @Transactional
-    public void manageFreePlansAndPromotions() {
-        logger.info("Iniciando verificação de planos gratuitos...");
-        List<UserPlan> activeFreePlans = userPlanRepository.findAllByPlanTypeAndPlanStatus(PlanType.FREE, PlanStatus.ACTIVE);
-
-        List<Promotion> promotionsToUpdate = new ArrayList<>();
-        List<UserPlan> userPlansToUpdate = new ArrayList<>();
-
+    public void manageUserPlans() {
+        logger.info("Iniciando tarefa de gerenciamento de planos de usuário...");
         LocalDateTime now = LocalDateTime.now();
 
-        for (UserPlan userPlan : activeFreePlans) {
-            User user = userPlan.getUser();
+        expireActivePlans(now);
+        activateReadyPlans(now);
 
-            if (userPlan.getFinishAt() == null) {
-                // Caso 1: Expira o plano gratuito após 24 horas
-                LocalDateTime expirationTime = userPlan.getStartedAt().plusHours(24);
-                if (now.isAfter(expirationTime) || now.isEqual(expirationTime)) {
-                    logger.info("Expirando plano gratuito para o usuário ID: {}", user.getId());
-                    userPlan.setFinishAt(now);
-                    userPlansToUpdate.add(userPlan);
+        logger.info("Gerenciamento de planos de usuário concluído.");
+    }
+
+    private void expireActivePlans(LocalDateTime now) {
+        List<UserPlan> expiredPlans = userPlanRepository.findExpiredActivePlans(now);
+        if (expiredPlans.isEmpty()) {
+            return;
+        }
+
+        logger.info("Encontrados {} planos expirados para desativar.", expiredPlans.size());
+
+        for (UserPlan userPlan : expiredPlans) {
+            userPlan.setPlanStatus(PlanStatus.INACTIVE);
+
+            if (userPlan.getUser().getPromotions() != null) {
+                userPlan.getUser().getPromotions().forEach(promo -> {
+                    promo.setActive(false);
+                    promo.setAllowUserActivePromotion(false);
+                });
+            }
+        }
+        userPlanRepository.saveAll(expiredPlans);
+    }
+
+    private void activateReadyPlans(LocalDateTime now) {
+        List<UserPlan> plansReadyForCheck = userPlanRepository.findReadyToActivatePlans(now);
+        if (plansReadyForCheck.isEmpty()) {
+            return;
+        }
+
+        logger.info("Encontrados {} planos prontos para verificação.", plansReadyForCheck.size());
+
+        Map<User, List<UserPlan>> plansByUser = plansReadyForCheck.stream()
+                .collect(Collectors.groupingBy(UserPlan::getUser));
+
+        List<UserPlan> plansToSave = new ArrayList<>();
+
+        for (Map.Entry<User, List<UserPlan>> entry : plansByUser.entrySet()) {
+            User user = entry.getKey();
+            List<UserPlan> readyPlans = entry.getValue();
+
+            boolean hasActivePlan = user.getUserPlans().stream()
+                    .anyMatch(p -> p.getPlanStatus() == PlanStatus.ACTIVE);
+
+            if (hasActivePlan) {
+                continue;
+            }
+
+            Optional<UserPlan> planToProcessOpt = readyPlans.stream()
+                    .min(Comparator.comparing(UserPlan::getStartedAt));
+
+            if (planToProcessOpt.isPresent()) {
+                UserPlan planToProcess = planToProcessOpt.get();
+
+                // --- CORREÇÃO: Adicionada a verificação do finishAt ---
+                // Se o plano já tem uma data de término e essa data já passou, ele é inativado.
+                if (planToProcess.getFinishAt() != null && planToProcess.getFinishAt().isBefore(now)) {
+                    planToProcess.setPlanStatus(PlanStatus.INACTIVE);
+                    logger.info("Plano ID {} para o usuário ID {} foi inativado pois sua data de término já passou.", planToProcess.getPlan().getId(), user.getId());
+                } else {
+                    // Caso contrário, o plano é ativado.
+                    planToProcess.setPlanStatus(PlanStatus.ACTIVE);
+
+                    if (planToProcess.getStartedAt() == null || planToProcess.getStartedAt().isBefore(now)) {
+                        planToProcess.setStartedAt(now);
+                    }
+
+                    setFinishAtByPlanType(planToProcess, planToProcess.getStartedAt());
 
                     if (user.getPromotions() != null) {
-                        user.getPromotions().forEach(promo -> {
-                            promo.setAllowUserActivePromotion(false);
-                            promo.setActive(false);
-                            promotionsToUpdate.add(promo);
-                        });
+                        user.getPromotions().forEach(promo -> promo.setAllowUserActivePromotion(true));
                     }
+                    logger.info("Plano ID {} ativado para o usuário ID: {}", planToProcess.getPlan().getId(), user.getId());
                 }
-            } else {
-                // Caso 2: Reativa as promoções após 7 dias de "cooldown"
-                LocalDateTime reactivationTime = userPlan.getFinishAt().plusDays(7);
-                if (now.isAfter(reactivationTime) || now.isEqual(reactivationTime)) {
-                    logger.info("Reativando promoções para o usuário ID: {}", user.getId());
-                    userPlan.setFinishAt(null); // Limpa o campo para o ciclo recomeçar
-                    userPlansToUpdate.add(userPlan);
-
-                    if (user.getPromotions() != null) {
-                        user.getPromotions().forEach(promo -> {
-                            promo.setAllowUserActivePromotion(true);
-                            // Você pode decidir se quer reativar a promoção ou não
-                            // promo.setActive(true);
-                            promotionsToUpdate.add(promo);
-                        });
-                    }
-                }
+                plansToSave.add(planToProcess);
             }
         }
 
-        if (!userPlansToUpdate.isEmpty()) {
-            userPlanRepository.saveAll(userPlansToUpdate);
-            logger.info("{} planos de usuário foram atualizados.", userPlansToUpdate.size());
+        if (!plansToSave.isEmpty()) {
+            userPlanRepository.saveAll(plansToSave);
         }
+    }
 
-        if (!promotionsToUpdate.isEmpty()) {
-            promotionRepository.saveAll(promotionsToUpdate);
-            logger.info("{} promoções foram atualizadas.", promotionsToUpdate.size());
+    private void setFinishAtByPlanType(UserPlan userPlan, LocalDateTime startDate) {
+        if (startDate == null) {
+            userPlan.setFinishAt(null);
+            return;
         }
-
-        logger.info("Verificação de planos gratuitos concluída.");
+        switch (userPlan.getPlan().getType()) {
+            case FREE:
+                userPlan.setFinishAt(startDate.plusHours(24));
+                break;
+            case MONTHLY:
+                userPlan.setFinishAt(startDate.plusDays(30));
+                break;
+            case PARTNER:
+                userPlan.setFinishAt(startDate.plusYears(1));
+                break;
+            default:
+                userPlan.setFinishAt(null);
+                break;
+        }
     }
 }

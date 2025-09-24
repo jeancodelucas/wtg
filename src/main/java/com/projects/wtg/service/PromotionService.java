@@ -41,8 +41,6 @@ public class PromotionService {
         }
 
         Promotion promotion = buildPromotionFromDto(dto);
-        // Para uma nova promoção, a permissão é sempre concedida.
-        promotion.setAllowUserActivePromotion(true);
         handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
         user.addPromotion(promotion);
         return userRepository.save(user);
@@ -61,16 +59,12 @@ public class PromotionService {
 
         String message = "Promoção atualizada com sucesso.";
 
-        // --- CORREÇÃO: Adicionada a verificação da permissão ---
-        // Verifica se houve uma tentativa de mudar o status da promoção
         boolean statusChangeAttempted = !Objects.equals(dto.getActive(), promotion.getActive());
 
         if (statusChangeAttempted) {
             if (Boolean.FALSE.equals(promotion.getAllowUserActivePromotion())) {
-                // Se a permissão for falsa, a alteração de status é bloqueada e uma mensagem é definida.
                 message += " No entanto, o status do evento não pode ser alterado no momento. Aguarde a reativação do seu plano.";
             } else {
-                // Se a permissão for verdadeira, procede com a lógica de ativação/desativação.
                 message = handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
             }
         }
@@ -123,14 +117,12 @@ public class PromotionService {
                 user.getUserPlans().add(futurePlan);
 
             } else {
-                UserPlan newUserPlan = new UserPlan();
-                newUserPlan.setId(new UserPlanId(null, planToAssign.getId()));
-                newUserPlan.setUser(user);
-                newUserPlan.setPlan(planToAssign);
-                newUserPlan.setStartedAt(LocalDateTime.now());
-                setFinishAtByPlanType(newUserPlan, newUserPlan.getStartedAt());
-                newUserPlan.setPlanStatus(PlanStatus.ACTIVE);
-                user.getUserPlans().add(newUserPlan);
+                UserPlan newUserPlan = createNewUserPlan(user, planToAssign, LocalDateTime.now());
+                // --- CORREÇÃO ADICIONADA AQUI ---
+                // Sempre que um novo plano é ativado, a permissão deve ser concedida.
+                if (user.getPromotions() != null) {
+                    user.getPromotions().forEach(p -> p.setAllowUserActivePromotion(true));
+                }
             }
         } else {
             Optional<UserPlan> readyPlanOpt = userPlanRepository.findByUserAndPlanStatus(user, PlanStatus.READYTOACTIVE);
@@ -140,12 +132,20 @@ public class PromotionService {
                 planToActivate.setPlanStatus(PlanStatus.ACTIVE);
                 planToActivate.setStartedAt(now);
                 setFinishAtByPlanType(planToActivate, now);
+                // --- CORREÇÃO ADICIONADA AQUI ---
+                if (user.getPromotions() != null) {
+                    user.getPromotions().forEach(p -> p.setAllowUserActivePromotion(true));
+                }
             } else {
                 Optional<UserPlan> existingPlanOpt = userPlanRepository.findActiveOrFuturePausedPlan(user, LocalDateTime.now());
                 if (existingPlanOpt.isEmpty()) {
                     Plan freePlan = planRepository.findByType(PlanType.FREE)
                             .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
                     createNewUserPlan(user, freePlan, LocalDateTime.now());
+                    // --- CORREÇÃO ADICIONADA AQUI ---
+                    if (user.getPromotions() != null) {
+                        user.getPromotions().forEach(p -> p.setAllowUserActivePromotion(true));
+                    }
                 }
             }
         }
