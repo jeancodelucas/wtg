@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 @Service
@@ -33,91 +32,105 @@ public class PromotionService {
     @Transactional
     public User createPromotion(CreatePromotionRequestDto dto, String userEmail) {
         Account account = accountRepository.findByEmailWithUserAndPlans(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
+                .orElseThrow(() -> new UsernameNotFoundException("Utilizador não encontrado."));
         User user = account.getUser();
 
         if (user.getPromotions() != null && !user.getPromotions().isEmpty()) {
-            throw new PromotionAlreadyExistsException("Não é possível criar um novo evento, pois já existe um evento vinculado a este usuário.");
+            throw new PromotionAlreadyExistsException("Não é possível criar um novo evento, pois já existe um evento vinculado a este utilizador.");
         }
 
         Promotion promotion = buildPromotionFromDto(dto);
+
+        handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
+
         user.addPromotion(promotion);
-
-        // Se um planId for enviado, a nova lógica de transição de plano é acionada
-        if (dto.getPlanId() != null) {
-            handlePlanTransition(user, dto.getPlanId());
-        }
-
         return userRepository.save(user);
     }
 
-    // --- NOVA LÓGICA CENTRALIZADA PARA TRANSIÇÃO DE PLANOS ---
-    private void handlePlanTransition(User user, Long newPlanId) {
+    @Transactional
+    public PromotionEditResponseDto editPromotion(Long promotionId, PromotionEditDto dto, String userEmail) {
+        Account account = accountRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("Utilizador não encontrado."));
+        User user = account.getUser();
+
+        Promotion promotion = promotionRepository.findByIdAndUser(promotionId, user)
+                .orElseThrow(() -> new EntityNotFoundException("Promoção com ID " + promotionId + " não encontrada ou não pertence a este utilizador."));
+
+        updatePromotionFields(promotion, dto);
+
+        handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
+
+        Promotion updatedPromotion = promotionRepository.save(promotion);
+        PlanDto updatedPlanDto = userPlanRepository.findTopByUserOrderByCreatedAtDesc(user).map(PlanDto::new).orElse(null);
+
+        return PromotionEditResponseDto.builder()
+                .promotion(new PromotionDto(updatedPromotion))
+                .userPlan(updatedPlanDto)
+                .message("Promoção atualizada com sucesso.")
+                .build();
+    }
+
+    private void handlePromotionActivation(User user, Promotion promotion, Boolean active, Long planId) {
+        // REGRA 1: Se 'active' for false, apenas desativa a promoção e termina a execução.
+        if (Boolean.FALSE.equals(active)) {
+            promotion.setActive(false);
+            return;
+        }
+
+        // Se 'active' for nulo ou true, continua para as próximas regras.
+        promotion.setActive(true);
         LocalDateTime now = LocalDateTime.now();
-        Optional<UserPlan> currentUserPlanOpt = userPlanRepository.findActivePlanByUser(user, PlanStatus.ACTIVE);
+        Optional<UserPlan> existingPlanOpt = userPlanRepository.findActiveOrFuturePausedPlan(user, now);
 
-        Plan newPlan = planRepository.findById(newPlanId)
-                .orElseThrow(() -> new EntityNotFoundException("Plano com ID " + newPlanId + " não encontrado."));
+        if (planId != null) {
+            // REGRA 5: Se um planId foi enviado
+            if (existingPlanOpt.isEmpty()) {
+                // REGRA 5.1: Se não há plano válido, cria um novo com o planId fornecido.
+                Plan planToAssign = planRepository.findById(planId)
+                        .orElseThrow(() -> new EntityNotFoundException("Plano com ID " + planId + " não encontrado."));
 
-        if (currentUserPlanOpt.isPresent()) {
-            UserPlan currentUserPlan = currentUserPlanOpt.get();
-
-            // REGRA 1 e 2: Se o plano atual expirou ou está inativo, inativa o antigo e cria um novo ativo.
-            if (currentUserPlan.getPlanStatus() == PlanStatus.INACTIVE ||
-                    (currentUserPlan.getFinishAt() != null && !currentUserPlan.getFinishAt().isAfter(now))) {
-
-                currentUserPlan.setPlanStatus(PlanStatus.INACTIVE);
-                userPlanRepository.save(currentUserPlan);
-
-                createNewActiveUserPlan(user, newPlan, now);
+                createNewUserPlan(user, planToAssign, now);
             }
-            // REGRA 3: Se o plano atual está ativo e não expirou, cria um novo plano pausado.
-            else if (currentUserPlan.getPlanStatus() == PlanStatus.ACTIVE &&
-                    (currentUserPlan.getFinishAt() == null || currentUserPlan.getFinishAt().isAfter(now))) {
-
-                UserPlan pausedUserPlan = UserPlan.builder()
-                        .id(new UserPlanId(null, newPlan.getId()))
-                        .user(user)
-                        .plan(newPlan)
-                        .planStatus(PlanStatus.PAUSED)
-                        .startedAt(currentUserPlan.getFinishAt()) // Inicia quando o outro terminar
-                        .build();
-                setFinishAtByPlanType(pausedUserPlan, pausedUserPlan.getStartedAt());
-                user.getUserPlans().add(pausedUserPlan);
-            }
+            // Se já existe um plano válido, não faz nada com a tabela user_plan.
         } else {
-            // Se não há plano ativo, simplesmente cria um novo.
-            createNewActiveUserPlan(user, newPlan, now);
+            // REGRA 2, 3 e 4: Se um planId NÃO foi enviado
+            if (existingPlanOpt.isEmpty()) {
+                // REGRA 4: Se não há plano válido, cria um novo plano FREE.
+                Plan freePlan = planRepository.findByType(PlanType.FREE)
+                        .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
+
+                UserPlan newUserPlan = createNewUserPlan(user, freePlan, now);
+                newUserPlan.setFinishAt(now.plusHours(24)); // Regra específica do plano FREE
+            }
+            // REGRA 2 e 3: Se já existe um plano válido, não faz nada com a tabela user_plan.
         }
     }
 
-    private void createNewActiveUserPlan(User user, Plan plan, LocalDateTime startDate) {
+    private UserPlan createNewUserPlan(User user, Plan plan, LocalDateTime now) {
         UserPlan newUserPlan = UserPlan.builder()
                 .id(new UserPlanId(null, plan.getId()))
                 .user(user)
                 .plan(plan)
                 .planStatus(PlanStatus.ACTIVE)
-                .startedAt(startDate)
+                .startedAt(now)
                 .build();
-        setFinishAtByPlanType(newUserPlan, startDate);
+
+        setFinishAtByPlanType(newUserPlan, now);
         user.getUserPlans().add(newUserPlan);
+        return newUserPlan;
     }
 
-    // ... outros métodos ...
-    private void setFinishAtByPlanType(UserPlan userPlan, LocalDateTime now) {
-        if (now == null) { // Para planos pausados que podem não ter data de início imediata
-            userPlan.setFinishAt(null);
-            return;
-        }
+    private void setFinishAtByPlanType(UserPlan userPlan, LocalDateTime startDate) {
+        if (startDate == null) return;
         switch (userPlan.getPlan().getType()) {
             case FREE:
-                userPlan.setFinishAt(now.plusHours(24));
+                userPlan.setFinishAt(startDate.plusHours(24));
                 break;
             case MONTHLY:
-                userPlan.setFinishAt(now.plusDays(30));
+                userPlan.setFinishAt(startDate.plusDays(30));
                 break;
             case PARTNER:
-                userPlan.setFinishAt(null); // Partner não tem data de fim
+                userPlan.setFinishAt(startDate.plusYears(1)); // NOVA REGRA
                 break;
             default:
                 break;
@@ -128,9 +141,7 @@ public class PromotionService {
         Promotion promotion = new Promotion();
         promotion.setTitle(dto.getTitle());
         promotion.setDescription(dto.getDescription());
-        promotion.setActive(dto.getActive());
         promotion.setFree(dto.isFree());
-        promotion.setObs(dto.getObs());
         promotion.setAllowUserActivePromotion(true);
 
         Address address = new Address();
@@ -144,42 +155,6 @@ public class PromotionService {
         }
         promotion.setAddress(address);
         return promotion;
-    }
-
-    @Transactional
-    public PromotionEditResponseDto editPromotion(Long promotionId, PromotionEditDto dto, String userEmail) {
-        Account account = accountRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
-        User user = account.getUser();
-
-        Promotion promotion = promotionRepository.findByIdAndUser(promotionId, user)
-                .orElseThrow(() -> new EntityNotFoundException("Promoção com ID " + promotionId + " não encontrada ou não pertence a este usuário."));
-
-        // Regra 1: Atualizar o status da promoção
-        if (Boolean.TRUE.equals(promotion.getAllowUserActivePromotion())) {
-            promotion.setActive(dto.getActive());
-        } else {
-            // Se não for permitido, garante que o DTO não sobrescreva para 'true'
-            dto.setActive(promotion.getActive());
-        }
-
-        // Regra 2: Ativação da promoção e lógica de plano
-        if (Boolean.TRUE.equals(dto.getActive()) && dto.getPlanId() != null) {
-            handlePlanTransition(user, dto.getPlanId());
-        }
-
-        updatePromotionFields(promotion, dto);
-        Promotion updatedPromotion = promotionRepository.save(promotion);
-
-        PlanDto updatedPlanDto = userPlanRepository.findActivePlanByUser(user, PlanStatus.ACTIVE)
-                .map(PlanDto::new)
-                .orElse(null);
-
-        return PromotionEditResponseDto.builder()
-                .promotion(new PromotionDto(updatedPromotion))
-                .userPlan(updatedPlanDto)
-                .message("Promoção atualizada com sucesso.")
-                .build();
     }
 
     private void updatePromotionFields(Promotion promotion, PromotionEditDto dto) {
