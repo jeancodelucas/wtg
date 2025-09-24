@@ -3,6 +3,8 @@ package com.projects.wtg.model;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.LocalDateTime;
 
@@ -31,6 +33,14 @@ public class UserPlan {
 
     private LocalDateTime startedAt;
     private LocalDateTime finishAt;
+
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
 
     // Mapeia explicitamente o atributo 'planStatus' para a coluna 'status' do banco de dados.
     @Column(name = "status")
