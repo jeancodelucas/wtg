@@ -11,6 +11,8 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     Optional<Account> findByEmail(String email);
 
+    Optional<Account> findByToken(String token);
+
     @Query("SELECT a FROM Account a JOIN FETCH a.user u LEFT JOIN FETCH u.userPlans WHERE a.email = :email")
     Optional<Account> findByEmailWithUserAndPlans(@Param("email") String email);
 

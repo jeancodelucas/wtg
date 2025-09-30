@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
@@ -26,19 +27,54 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PlanRepository planRepository;
+    private final EmailService emailService;
 
     private static final Pattern STRONG_PASSWORD_PATTERN =
             Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$");
 
-    public UserService(UserRepository userRepository, AccountRepository accountRepository, @Lazy PasswordEncoder passwordEncoder, PlanRepository planRepository) {
+    public UserService(UserRepository userRepository, AccountRepository accountRepository, @Lazy PasswordEncoder passwordEncoder, PlanRepository planRepository, EmailService emailService) {
         this.userRepository = userRepository;
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
         this.planRepository = planRepository;
+        this.emailService = emailService;
     }
 
     @Transactional
+    public void generatePasswordResetToken(String email) {
+        Account account = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Conta não encontrada para o e-mail: " + email));
+
+        String token = UUID.randomUUID().toString();
+        account.setToken(token);
+        // O token poderia ter um tempo de expiração, mas para simplificar vamos apenas salvá-lo.
+        accountRepository.save(account);
+
+        // A URL deve apontar para a sua aplicação frontend
+        String resetLink = "http://localhost:3000/reset-password?token=" + token;
+        emailService.sendPasswordResetEmail(email, resetLink);
+    }
+
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        Account account = accountRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Token de redefinição de senha inválido ou expirado."));
+
+        if (!isPasswordStrong(newPassword)) {
+            throw new IllegalArgumentException("A nova senha não atende aos critérios de segurança.");
+        }
+
+        account.setPassword(passwordEncoder.encode(newPassword));
+        account.setToken(null); // Limpa o token após o uso
+        accountRepository.save(account);
+    }
+
+
+    @Transactional
     public User createUserWithAccount(UserRegistrationDto userRegistrationDto, Authentication authentication) {
+// ... (código existente sem alterações)
+// ... (código existente sem alterações)
+// ... (código existente sem alterações)
         if (userRegistrationDto.getPlanId() != null) {
             if (authentication == null || !authentication.isAuthenticated()) {
                 throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
