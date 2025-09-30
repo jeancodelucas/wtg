@@ -21,6 +21,7 @@ public class UserDto {
     private PlanDto activePlan;
     private UserType userType;
     private List<PromotionDto> promotions;
+    private WalletDto wallet;
 
     public UserDto(User user) {
         this.id = user.getId();
@@ -48,6 +49,10 @@ public class UserDto {
             this.promotions = user.getPromotions().stream()
                     .map(PromotionDto::new)
                     .collect(Collectors.toList());
+        }
+
+        if (user.getWallet() != null) {
+            this.wallet = new WalletDto(user.getWallet());
         }
     }
 }

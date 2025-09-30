@@ -59,6 +59,11 @@ public class User {
     @Builder.Default
     private List<UserPlan> userPlans = new ArrayList<>();
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    @ToString.Exclude
+    private Wallet wallet;
+
     public void setAccount(Account account) {
         if (account == null) {
             if (this.account != null) {
@@ -73,5 +78,16 @@ public class User {
     public void addPromotion(Promotion promotion) {
         this.promotions.add(promotion);
         promotion.setUser(this);
+    }
+
+    public void setWallet(Wallet wallet) {
+        if (wallet == null) {
+            if (this.wallet != null) {
+                this.wallet.setUser(null);
+            }
+        } else {
+            wallet.setUser(this);
+        }
+        this.wallet = wallet;
     }
 }
