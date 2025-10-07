@@ -8,6 +8,11 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
+import java.util.List;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
@@ -223,5 +228,19 @@ public class PromotionService {
             address.setPostalCode(dto.getAddress().getPostalCode());
             address.setObs(dto.getAddress().getObs());
         }
+    }
+    public List<Promotion> findNearby(double latitude, double longitude, double radiusInKm) {
+        // O GeometryFactory é usado para criar objetos geométricos.
+        // O SRID 4326 corresponde ao sistema de coordenadas WGS 84.
+        GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+
+        // Cria um objeto Point a partir das coordenadas do usuário.
+        Point userLocation = geometryFactory.createPoint(new Coordinate(longitude, latitude));
+
+        // Converte o raio de quilômetros para metros, pois ST_DWithin trabalha com metros.
+        double radiusInMeters = radiusInKm * 1000;
+
+        // Chama o método do repositório para buscar as promoções.
+        return promotionRepository.findPromotionsWithinRadius(userLocation, radiusInMeters);
     }
 }

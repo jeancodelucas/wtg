@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  postgis:
+    image: postgis/postgis:17-3.5
+    container_name: postgis_db
+    restart: unless-stopped
+
+    # Credenciais e banco inicial
+    env_file:
+      - .env
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    # Porta 5432 do host → 5432 do container
+    ports:
+      - "5432:5432"
+
+    # Volumes para dados, scripts e configs
+    volumes:
+      # Volume persistente dos dados do container (não seu banco atual)
+      - postgres_data:/var/lib/postgresql/data
+
+      # Scripts de inicialização (ex: criar extensões)
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+
+      # Seus arquivos de configuração reais
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+
+    # Healthcheck para garantir que o banco está pronto
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

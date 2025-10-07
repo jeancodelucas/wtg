@@ -1,12 +1,10 @@
 package com.projects.wtg.dto;
 
-import com.projects.wtg.model.PlanStatus;
 import com.projects.wtg.model.User;
 import com.projects.wtg.model.UserType;
 import lombok.Data;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Data
@@ -36,8 +34,6 @@ public class UserDto {
             this.active = user.getAccount().getActive();
         }
 
-        // CORREÇÃO: Lógica ajustada e bloco duplicado removido.
-        // Agora, ele pega o primeiro plano encontrado, independentemente do status.
         if (user.getUserPlans() != null && !user.getUserPlans().isEmpty()) {
             this.activePlan = user.getUserPlans().stream()
                     .findFirst()

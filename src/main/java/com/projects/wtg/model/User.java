@@ -5,7 +5,7 @@ import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
+import org.locationtech.jts.geom.Point;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -26,9 +26,11 @@ public class User {
     private String firstName;
     private String fullName;
     private LocalDate birthday;
-    // private Boolean active; // REMOVIDO DESTA CLASSE
     private String phone;
     private String token;
+
+//    @Column(columnDefinition = "geometry(Point, 4326)")
+//    private Point point;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)

@@ -7,6 +7,7 @@ import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.locationtech.jts.geom.Point;
 
 import java.time.LocalDateTime;
 
@@ -34,6 +35,9 @@ public class Promotion {
     @LastModifiedDate
     @Column(nullable = false)
     private LocalDateTime updatedAt;
+
+//    @Column(columnDefinition = "geometry(Point, 4326)")
+//    private Point point;
 
     @Column(name = "allow_user_active_promotion")
     private Boolean allowUserActivePromotion;
