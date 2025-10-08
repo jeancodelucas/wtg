@@ -1,6 +1,7 @@
 package com.projects.wtg.dto;
 
 import com.projects.wtg.model.Promotion;
+import com.projects.wtg.model.PromotionType;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,6 +15,7 @@ public class PromotionDto {
     private String obs;
     private Boolean active;
     private AddressDto address;
+    private PromotionType promotionType;
 
     // Construtor para facilitar a conversão da entidade para DTO
     public PromotionDto(Promotion promotion) {
@@ -22,6 +24,8 @@ public class PromotionDto {
         this.free = promotion.isFree();
         this.obs = promotion.getObs();
         this.active = promotion.getActive();
+        this.promotionType = promotion.getPromotionType();
+
         if (promotion.getAddress() != null) {
             this.address = new AddressDto(promotion.getAddress());
         }

@@ -42,6 +42,9 @@ public class Promotion {
     @Column(name = "allow_user_active_promotion")
     private Boolean allowUserActivePromotion;
 
+    @Column(name = "promotion_type")
+    private PromotionType promotionType;
+
     private Boolean active;
 
     // --- CORREÇÃO: ADICIONANDO O CAMPO QUE FALTAVA ---

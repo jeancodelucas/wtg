@@ -12,9 +12,12 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
-import java.util.List;
+import org.springframework.data.jpa.domain.Specification;
+
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -84,6 +87,36 @@ public class PromotionService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public List<Promotion> findWithFilters(PromotionType promotionType, Double latitude, Double longitude, Double radius) {
+        // Validação dos parâmetros de geolocalização
+        boolean hasGeoFilter = latitude != null || longitude != null || radius != null;
+        if (hasGeoFilter && (latitude == null || longitude == null || radius == null)) {
+            throw new IllegalArgumentException("Para filtrar por raio, os campos latitude, longitude e radius são obrigatórios.");
+        }
+
+        List<Long> idsInRadius = null;
+
+        if (hasGeoFilter) {
+            GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+            Point userLocation = geometryFactory.createPoint(new Coordinate(longitude, latitude));
+            double radiusInMeters = radius * 1000;
+
+            idsInRadius = promotionRepository.findIdsWithinRadius(userLocation, radiusInMeters);
+
+            // Otimização: se a busca por raio não retorna nada, não há necessidade de continuar.
+            if (idsInRadius.isEmpty()) {
+                return Collections.emptyList();
+            }
+        }
+
+        // Cria a especificação combinando os filtros
+        Specification<Promotion> spec = PromotionSpecifications.createSpecification(promotionType, idsInRadius);
+
+        return promotionRepository.findAll(spec);
+    }
+
+
     private String handlePromotionActivation(User user, Promotion promotion, Boolean active, Long planId) {
         promotion.setActive(active);
         String message = "Promoção atualizada com sucesso.";
@@ -123,8 +156,6 @@ public class PromotionService {
 
             } else {
                 UserPlan newUserPlan = createNewUserPlan(user, planToAssign, LocalDateTime.now());
-                // --- CORREÇÃO ADICIONADA AQUI ---
-                // Sempre que um novo plano é ativado, a permissão deve ser concedida.
                 if (user.getPromotions() != null) {
                     user.getPromotions().forEach(p -> p.setAllowUserActivePromotion(true));
                 }
@@ -137,7 +168,6 @@ public class PromotionService {
                 planToActivate.setPlanStatus(PlanStatus.ACTIVE);
                 planToActivate.setStartedAt(now);
                 setFinishAtByPlanType(planToActivate, now);
-                // --- CORREÇÃO ADICIONADA AQUI ---
                 if (user.getPromotions() != null) {
                     user.getPromotions().forEach(p -> p.setAllowUserActivePromotion(true));
                 }
@@ -147,7 +177,6 @@ public class PromotionService {
                     Plan freePlan = planRepository.findByType(PlanType.FREE)
                             .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
                     createNewUserPlan(user, freePlan, LocalDateTime.now());
-                    // --- CORREÇÃO ADICIONADA AQUI ---
                     if (user.getPromotions() != null) {
                         user.getPromotions().forEach(p -> p.setAllowUserActivePromotion(true));
                     }
@@ -228,19 +257,5 @@ public class PromotionService {
             address.setPostalCode(dto.getAddress().getPostalCode());
             address.setObs(dto.getAddress().getObs());
         }
-    }
-    public List<Promotion> findNearby(double latitude, double longitude, double radiusInKm) {
-        // O GeometryFactory é usado para criar objetos geométricos.
-        // O SRID 4326 corresponde ao sistema de coordenadas WGS 84.
-        GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-
-        // Cria um objeto Point a partir das coordenadas do usuário.
-        Point userLocation = geometryFactory.createPoint(new Coordinate(longitude, latitude));
-
-        // Converte o raio de quilômetros para metros, pois ST_DWithin trabalha com metros.
-        double radiusInMeters = radiusInKm * 1000;
-
-        // Chama o método do repositório para buscar as promoções.
-        return promotionRepository.findPromotionsWithinRadius(userLocation, radiusInMeters);
     }
 }
