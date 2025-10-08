@@ -1,8 +1,7 @@
-version: "3.9"
-
 services:
   postgis:
     image: postgis/postgis:17-3.5
+    platform: linux/amd64
     container_name: postgis_db
     restart: unless-stopped
 
@@ -33,7 +32,7 @@ services:
 
     # Healthcheck para garantir que o banco está pronto
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
