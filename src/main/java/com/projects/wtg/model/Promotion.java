@@ -36,8 +36,8 @@ public class Promotion {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-//    @Column(columnDefinition = "geometry(Point, 4326)")
-//    private Point point;
+    @Column(columnDefinition = "geography(Point, 4326)")
+    private Point point;
 
     @Column(name = "allow_user_active_promotion")
     private Boolean allowUserActivePromotion;

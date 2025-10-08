@@ -29,8 +29,8 @@ public class User {
     private String phone;
     private String token;
 
-//    @Column(columnDefinition = "geometry(Point, 4326)")
-//    private Point point;
+    @Column(columnDefinition = "geography(Point, 4326)")
+    private Point point;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
