@@ -1,12 +1,10 @@
 package com.projects.wtg.controller;
 
-import com.projects.wtg.dto.ForgotPasswordRequestDto;
-import com.projects.wtg.dto.LoginRequestDto;
-import com.projects.wtg.dto.LoginResponseDto;
-import com.projects.wtg.dto.ResetPasswordRequestDto;
-import com.projects.wtg.dto.UserDto;
+import com.projects.wtg.dto.*;
 import com.projects.wtg.model.Account;
+import com.projects.wtg.model.Promotion;
 import com.projects.wtg.repository.AccountRepository;
+import com.projects.wtg.service.PromotionService;
 import com.projects.wtg.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -23,7 +21,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -32,11 +32,13 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final AccountRepository accountRepository;
     private final UserService userService;
+    private final PromotionService promotionService;
 
-    public AuthController(AuthenticationManager authenticationManager, AccountRepository accountRepository, UserService userService) {
+    public AuthController(AuthenticationManager authenticationManager, AccountRepository accountRepository, UserService userService, PromotionService promotionService) {
         this.authenticationManager = authenticationManager;
         this.accountRepository = accountRepository;
         this.userService = userService;
+        this.promotionService = promotionService;
     }
 
     @PostMapping("/login")
@@ -65,10 +67,17 @@ public class AuthController {
             }
 
             UserDto userDto = new UserDto(account.getUser());
-            LoginResponseDto response = new LoginResponseDto("ok", message, 200, userDto);
+
+            // Lógica para buscar promoções próximas
+            List<PromotionDto> nearbyPromotions = null;
+            if (loginRequest.getLatitude() != null && loginRequest.getLongitude() != null) {
+                List<Promotion> promotions = promotionService.findWithFilters(null, loginRequest.getLatitude(), loginRequest.getLongitude(), 5.0);
+                nearbyPromotions = promotions.stream().map(PromotionDto::new).collect(Collectors.toList());
+            }
+
+            LoginResponseDto response = new LoginResponseDto("ok", message, 200, userDto, nearbyPromotions);
             return ResponseEntity.ok(response);
         } catch (BadCredentialsException e) {
-            // Requisito 1: Retorna erro 401 para credenciais inválidas
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Collections.singletonMap("error", "E-mail ou senha inválidos."));
         }

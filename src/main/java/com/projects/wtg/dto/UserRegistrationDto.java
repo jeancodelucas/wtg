@@ -46,6 +46,9 @@ public class UserRegistrationDto {
     private String locale;
     private String loginSub;
     private String loginProvider;
+    private Double latitude;
+    private Double longitude;
+
 
     @Valid
     private PromotionDataDto promotion;

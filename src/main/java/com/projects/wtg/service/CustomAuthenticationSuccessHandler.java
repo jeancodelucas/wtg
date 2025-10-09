@@ -52,7 +52,7 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
         }
 
         UserDto userDto = new UserDto(account.getUser());
-        LoginResponseDto loginResponse = new LoginResponseDto("ok", message, 200, userDto);
+        LoginResponseDto loginResponse = new LoginResponseDto("ok", message, 200, userDto, null);
 
         response.setStatus(HttpStatus.OK.value());
         response.setContentType("application/json");

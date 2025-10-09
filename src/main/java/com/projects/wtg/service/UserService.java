@@ -8,6 +8,10 @@ import com.projects.wtg.repository.AccountRepository;
 import com.projects.wtg.repository.PlanRepository;
 import com.projects.wtg.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -28,6 +32,8 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final PlanRepository planRepository;
     private final EmailService emailService;
+    private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+
 
     private static final Pattern STRONG_PASSWORD_PATTERN =
             Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$");
@@ -47,10 +53,8 @@ public class UserService {
 
         String token = UUID.randomUUID().toString();
         account.setToken(token);
-        // O token poderia ter um tempo de expiração, mas para simplificar vamos apenas salvá-lo.
         accountRepository.save(account);
 
-        // A URL deve apontar para a sua aplicação frontend
         String resetLink = "http://localhost:3000/reset-password?token=" + token;
         emailService.sendPasswordResetEmail(email, resetLink);
     }
@@ -65,16 +69,13 @@ public class UserService {
         }
 
         account.setPassword(passwordEncoder.encode(newPassword));
-        account.setToken(null); // Limpa o token após o uso
+        account.setToken(null);
         accountRepository.save(account);
     }
 
 
     @Transactional
     public User createUserWithAccount(UserRegistrationDto userRegistrationDto, Authentication authentication) {
-// ... (código existente sem alterações)
-// ... (código existente sem alterações)
-// ... (código existente sem alterações)
         if (userRegistrationDto.getPlanId() != null) {
             if (authentication == null || !authentication.isAuthenticated()) {
                 throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
@@ -103,6 +104,12 @@ public class UserService {
         user.setFullName(userRegistrationDto.getFullName());
         user.setFirstName(userRegistrationDto.getFirstName());
 
+        // Salva a localização do usuário se fornecida
+        if (userRegistrationDto.getLatitude() != null && userRegistrationDto.getLongitude() != null) {
+            Point userPoint = geometryFactory.createPoint(new Coordinate(userRegistrationDto.getLongitude(), userRegistrationDto.getLatitude()));
+            user.setPoint(userPoint);
+        }
+
         Account account = new Account();
         account.setUserName(userRegistrationDto.getUserName());
         account.setEmail(userRegistrationDto.getEmail());
@@ -110,8 +117,6 @@ public class UserService {
         account.setActive(true);
 
         user.setAccount(account);
-
-        // --- LÓGICA DE PLANO E PROMOÇÃO CORRIGIDA ---
 
         Plan planToAssign;
         if (userRegistrationDto.getPlanId() != null) {

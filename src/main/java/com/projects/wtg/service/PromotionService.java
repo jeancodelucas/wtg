@@ -89,12 +89,12 @@ public class PromotionService {
 
     @Transactional(readOnly = true)
     public List<Promotion> findWithFilters(PromotionType promotionType, Double latitude, Double longitude, Double radius) {
-        // Validação dos parâmetros de geolocalização
-        boolean hasGeoFilter = latitude != null || longitude != null || radius != null;
-        if (hasGeoFilter && (latitude == null || longitude == null || radius == null)) {
-            throw new IllegalArgumentException("Para filtrar por raio, os campos latitude, longitude e radius são obrigatórios.");
+        // Validação da nova lógica
+        if (promotionType != null && (latitude == null || longitude == null || radius == null)) {
+            throw new IllegalArgumentException("Para filtrar por tipo de promoção, os campos latitude, longitude e radius são obrigatórios.");
         }
 
+        boolean hasGeoFilter = latitude != null && longitude != null && radius != null;
         List<Long> idsInRadius = null;
 
         if (hasGeoFilter) {
@@ -104,7 +104,7 @@ public class PromotionService {
 
             idsInRadius = promotionRepository.findIdsWithinRadius(userLocation, radiusInMeters);
 
-            // Otimização: se a busca por raio não retorna nada, não há necessidade de continuar.
+            // Se a busca por raio não retorna nada, a lista final também será vazia.
             if (idsInRadius.isEmpty()) {
                 return Collections.emptyList();
             }

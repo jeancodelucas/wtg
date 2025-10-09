@@ -25,8 +25,8 @@ public class UserProfileController {
         User deactivatedUser = userService.deactivateUserByEmail(userEmail);
 
         UserDto userDto = new UserDto(deactivatedUser);
-        // Cria a resposta customizada
-        LoginResponseDto response = new LoginResponseDto("ok", "usuário desativado", 200, userDto);
+        // CORREÇÃO: Adicionado 'null' como último argumento para o novo construtor
+        LoginResponseDto response = new LoginResponseDto("ok", "usuário desativado", 200, userDto, null);
 
         return ResponseEntity.ok(response);
     }
