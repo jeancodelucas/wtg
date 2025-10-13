@@ -28,6 +28,7 @@ import java.util.regex.Pattern;
 import com.projects.wtg.model.PlanType;
 import com.projects.wtg.model.PlanStatus;
 import com.projects.wtg.model.UserPlan;
+import com.projects.wtg.dto.UserUpdateDto;
 
 @Service
 public class UserService {
@@ -48,6 +49,18 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
         this.planRepository = planRepository;
         this.emailService = emailService;
+    }
+
+    @Transactional
+    public User updateUser(String email, UserUpdateDto userUpdateDto) {
+        User user = findUserByEmail(email);
+
+        user.setFirstName(userUpdateDto.getFirstName());
+        user.setCpf(userUpdateDto.getCpf());
+        user.setBirthday(userUpdateDto.getBirthday());
+        user.setPronouns(userUpdateDto.getPronouns());
+
+        return userRepository.save(user);
     }
 
     @Transactional

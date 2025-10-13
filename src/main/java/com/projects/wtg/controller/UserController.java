@@ -1,9 +1,6 @@
 package com.projects.wtg.controller;
 
-import com.projects.wtg.dto.PromotionDto;
-import com.projects.wtg.dto.RegistrationResponseDto;
-import com.projects.wtg.dto.UserDto;
-import com.projects.wtg.dto.UserRegistrationDto;
+import com.projects.wtg.dto.*;
 import com.projects.wtg.model.Promotion;
 import com.projects.wtg.model.User;
 import com.projects.wtg.service.PromotionService;
@@ -44,5 +41,11 @@ public class UserController {
 
         RegistrationResponseDto response = new RegistrationResponseDto(userDto, nearbyPromotions);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
+    @PutMapping("/update")
+    public ResponseEntity<UserDto> updateUser(@Valid @RequestBody UserUpdateDto userUpdateDto, Authentication authentication) {
+        String userEmail = authentication.getName();
+        User updatedUser = userService.updateUser(userEmail, userUpdateDto);
+        return ResponseEntity.ok(new UserDto(updatedUser));
     }
 }
