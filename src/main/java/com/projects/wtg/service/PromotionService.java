@@ -90,8 +90,10 @@ public class PromotionService {
     @Transactional(readOnly = true)
     public List<Promotion> findWithFilters(PromotionType promotionType, Double latitude, Double longitude, Double radius) {
         // Validação da nova lógica
-        if (promotionType != null && (latitude == null || longitude == null || radius == null)) {
-            throw new IllegalArgumentException("Para filtrar por tipo de promoção, os campos latitude, longitude e radius são obrigatórios.");
+        if (latitude != null || longitude != null || radius != null) {
+            if (latitude == null || longitude == null || radius == null) {
+                throw new IllegalArgumentException("Para filtrar por localização, os campos latitude, longitude e radius são obrigatórios.");
+            }
         }
 
         boolean hasGeoFilter = latitude != null && longitude != null && radius != null;

@@ -242,4 +242,13 @@ public class UserService {
                 .map(Account::getUser)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o e-mail: " + email));
     }
+    @Transactional
+    public void updateUserLocation(String email, Double latitude, Double longitude) {
+        if (latitude != null && longitude != null) {
+            User user = findUserByEmail(email);
+            Point userPoint = geometryFactory.createPoint(new Coordinate(longitude, latitude));
+            user.setPoint(userPoint);
+            userRepository.save(user);
+        }
+    }
 }

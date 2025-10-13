@@ -53,6 +53,7 @@ public class AuthController {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             HttpSession session = request.getSession(true);
             session.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
+            userService.updateUserLocation(loginRequest.getEmail(), loginRequest.getLatitude(), loginRequest.getLongitude());
 
             Account account = accountRepository.findByEmailWithUserAndPlans(loginRequest.getEmail())
                     .orElseThrow(() -> new IllegalStateException("Usuário logado não encontrado no banco de dados."));
