@@ -32,6 +32,18 @@ public class User {
     @Column(columnDefinition = "geography(Point, 4326)")
     private Point point;
 
+    @Column(unique = true)
+    private String cpf;
+
+    @Column
+    private String pronouns;
+
+//    @Column(name = "last_latitude")
+//    private Double lastLatitude;
+//
+//    @Column(name = "last_longitude")
+//    private Double lastLongitude;
+
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

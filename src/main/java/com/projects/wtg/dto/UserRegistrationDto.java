@@ -48,6 +48,8 @@ public class UserRegistrationDto {
     private String loginProvider;
     private Double latitude;
     private Double longitude;
+    private String cpf;
+    private String pronouns;
 
 
     @Valid

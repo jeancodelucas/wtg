@@ -103,6 +103,8 @@ public class UserService {
         User user = new User();
         user.setFullName(userRegistrationDto.getFullName());
         user.setFirstName(userRegistrationDto.getFirstName());
+        user.setCpf(userRegistrationDto.getCpf());
+        user.setPronouns(userRegistrationDto.getPronouns());
 
         // Salva a localização do usuário se fornecida
         if (userRegistrationDto.getLatitude() != null && userRegistrationDto.getLongitude() != null) {
@@ -115,6 +117,7 @@ public class UserService {
         account.setEmail(userRegistrationDto.getEmail());
         account.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
         account.setActive(true);
+
 
         user.setAccount(account);
 
