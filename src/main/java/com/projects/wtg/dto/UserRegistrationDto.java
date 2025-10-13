@@ -52,6 +52,7 @@ public class UserRegistrationDto {
     private String pronouns;
 
 
+
     @Valid
     private PromotionDataDto promotion;
 }

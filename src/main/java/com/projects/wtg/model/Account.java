@@ -30,7 +30,9 @@ public class Account {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // CORREÇÃO: A anotação correta para este campo é @LastModifiedDate
+    private String registrationToken;
+    private LocalDateTime registrationTokenExpiration;
+
     @LastModifiedDate
     @Column(nullable = false)
     private LocalDateTime updatedAt;

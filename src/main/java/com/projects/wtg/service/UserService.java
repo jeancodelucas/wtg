@@ -1,3 +1,5 @@
+// src/main/java/com/projects/wtg/service/UserService.java
+
 package com.projects.wtg.service;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
@@ -14,15 +16,19 @@ import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import com.projects.wtg.model.PlanType;
@@ -32,6 +38,8 @@ import com.projects.wtg.dto.UserUpdateDto;
 
 @Service
 public class UserService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
@@ -50,6 +58,75 @@ public class UserService {
         this.planRepository = planRepository;
         this.emailService = emailService;
     }
+
+    @Transactional
+    public void initiateRegistration(String email) {
+        // Verifica se o e-mail já existe e se a conta já está completa (tem palavra-passe)
+        accountRepository.findByEmail(email).ifPresent(account -> {
+            if (account.getPassword() != null) {
+                throw new EmailAlreadyExistsException("Este e-mail já está cadastrado. Por favor, faça o login.");
+            }
+        });
+
+        String token = String.format("%04d", new Random().nextInt(10000));
+        LocalDateTime expiration = LocalDateTime.now().plusMinutes(1).plusSeconds(30);
+
+        // Se a conta já existe (de uma tentativa anterior), reutiliza-a. Senão, cria uma nova.
+        Account account = accountRepository.findByEmail(email).orElse(new Account());
+
+        account.setEmail(email);
+
+        // *** LINHA DA CORREÇÃO ADICIONADA AQUI ***
+        // Define um userName padrão a partir do e-mail para satisfazer a restrição da base de dados.
+        if (account.getUserName() == null || account.getUserName().isEmpty()) {
+            account.setUserName(email.split("@")[0]);
+        }
+
+        account.setRegistrationToken(token);
+        account.setRegistrationTokenExpiration(expiration);
+        accountRepository.save(account);
+
+        // Bloco try-catch para tornar o envio de e-mail não-bloqueante
+        try {
+            emailService.sendRegistrationTokenEmail(email, token);
+            logger.info("Token de registo enviado com sucesso para: {}", email);
+        } catch (Exception e) {
+            // Se o envio de e-mail falhar, registamos o erro mas não quebramos a aplicação
+            logger.error("Falha ao enviar e-mail de token para {}. O erro foi: {}", email, e.getMessage());
+        }
+    }
+
+    @Transactional
+    public void validateRegistrationToken(String email, String token) {
+        Account account = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("Conta não encontrada para o e-mail: " + email));
+
+        if (account.getRegistrationToken() == null || !account.getRegistrationToken().equals(token)) {
+            throw new IllegalArgumentException("Token inválido.");
+        }
+
+        if (account.getRegistrationTokenExpiration().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Token expirado.");
+        }
+
+        account.setEmailVerified(true);
+        account.setRegistrationToken(null);
+        account.setRegistrationTokenExpiration(null);
+        accountRepository.save(account);
+    }
+
+    @Transactional
+    @Scheduled(fixedRate = 90000) // Executa a cada 1 minuto e 30 segundos
+    public void tokenCleanupScheduler() {
+        accountRepository.findAll().forEach(account -> {
+            if (account.getRegistrationToken() != null && account.getRegistrationTokenExpiration().isBefore(LocalDateTime.now())) {
+                account.setRegistrationToken(null);
+                account.setRegistrationTokenExpiration(null);
+                accountRepository.save(account);
+            }
+        });
+    }
+
 
     @Transactional
     public User updateUser(String email, UserUpdateDto userUpdateDto) {
@@ -93,6 +170,17 @@ public class UserService {
 
     @Transactional
     public User createUserWithAccount(UserRegistrationDto userRegistrationDto, Authentication authentication) {
+        Account account = accountRepository.findByEmail(userRegistrationDto.getEmail())
+                .orElseThrow(() -> new EntityNotFoundException("E-mail não verificado. Por favor, inicie o processo de registro."));
+
+        if (account.getPassword() != null) {
+            throw new EmailAlreadyExistsException("Este e-mail já está cadastrado. Por favor, faça o login.");
+        }
+        if (Boolean.FALSE.equals(account.getEmailVerified())) {
+            throw new IllegalStateException("E-mail não verificado. Por favor, valide o token enviado.");
+        }
+
+
         if (userRegistrationDto.getPlanId() != null) {
             if (authentication == null || !authentication.isAuthenticated()) {
                 throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
@@ -103,11 +191,6 @@ public class UserService {
                 throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
             }
         }
-
-        accountRepository.findByEmail(userRegistrationDto.getEmail())
-                .ifPresent(account -> {
-                    throw new EmailAlreadyExistsException("Este e-mail já está cadastrado. Por favor, faça o login.");
-                });
 
         if (!isPasswordStrong(userRegistrationDto.getPassword())) {
             throw new IllegalArgumentException("A senha não atende aos critérios de segurança...");
@@ -128,9 +211,7 @@ public class UserService {
             user.setPoint(userPoint);
         }
 
-        Account account = new Account();
         account.setUserName(userRegistrationDto.getUserName());
-        account.setEmail(userRegistrationDto.getEmail());
         account.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
         account.setActive(true);
 
