@@ -1,5 +1,6 @@
 package com.projects.wtg.service;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.projects.wtg.dto.PromotionDataDto;
 import com.projects.wtg.dto.UserRegistrationDto;
 import com.projects.wtg.exception.EmailAlreadyExistsException;
@@ -21,8 +22,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import com.projects.wtg.model.PlanType;
+import com.projects.wtg.model.PlanStatus;
+import com.projects.wtg.model.UserPlan;
 
 @Service
 public class UserService {
@@ -33,7 +38,6 @@ public class UserService {
     private final PlanRepository planRepository;
     private final EmailService emailService;
     private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-
 
     private static final Pattern STRONG_PASSWORD_PATTERN =
             Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$");
@@ -106,7 +110,6 @@ public class UserService {
         user.setCpf(userRegistrationDto.getCpf());
         user.setPronouns(userRegistrationDto.getPronouns());
 
-        // Salva a localização do usuário se fornecida
         if (userRegistrationDto.getLatitude() != null && userRegistrationDto.getLongitude() != null) {
             Point userPoint = geometryFactory.createPoint(new Coordinate(userRegistrationDto.getLongitude(), userRegistrationDto.getLatitude()));
             user.setPoint(userPoint);
@@ -117,7 +120,6 @@ public class UserService {
         account.setEmail(userRegistrationDto.getEmail());
         account.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
         account.setActive(true);
-
 
         user.setAccount(account);
 
@@ -242,6 +244,7 @@ public class UserService {
                 .map(Account::getUser)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado com o e-mail: " + email));
     }
+
     @Transactional
     public void updateUserLocation(String email, Double latitude, Double longitude) {
         if (latitude != null && longitude != null) {
@@ -250,5 +253,55 @@ public class UserService {
             user.setPoint(userPoint);
             userRepository.save(user);
         }
+    }
+
+    @Transactional
+    public Account processGoogleUser(GoogleIdToken.Payload payload) {
+        String email = payload.getEmail();
+
+        Optional<Account> optionalAccount = accountRepository.findByEmail(email);
+
+        if (optionalAccount.isPresent()) {
+            // Se o usuário já existe, apenas retorna a conta
+            return optionalAccount.get();
+        } else {
+            // Se não existe, cria um novo usuário com cadastro incompleto
+            User user = new User();
+
+            // --- CORREÇÃO DEFINITIVA APLICADA AQUI ---
+            // Usando o método get() e convertendo para String
+            user.setFirstName((String) payload.get("given_name"));
+            user.setFullName((String) payload.get("family_name"));
+            user.setPictureUrl((String) payload.get("picture"));
+            // -------------------------------------------
+
+            Account account = new Account();
+            account.setEmail(email);
+            account.setUserName(email); // Username default
+            account.setLoginProvider("google");
+            account.setActive(true);
+
+            user.setAccount(account);
+
+            assignFreePlanToUser(user);
+
+            userRepository.save(user);
+            return account;
+        }
+    }
+
+    private void assignFreePlanToUser(User user) {
+        planRepository.findByType(PlanType.FREE).ifPresent(plan -> {
+            UserPlan userPlan = new UserPlan();
+            userPlan.setUser(user);
+            userPlan.setPlan(plan);
+
+            // --- CORREÇÃO APLICADA AQUI ---
+            // O método correto é 'setPlanStatus', não 'setStatus'
+            userPlan.setPlanStatus(PlanStatus.ACTIVE);
+            // ---------------------------------
+
+            user.getUserPlans().add(userPlan);
+        });
     }
 }

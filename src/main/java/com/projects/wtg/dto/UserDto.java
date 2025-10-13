@@ -20,6 +20,7 @@ public class UserDto {
     private UserType userType;
     private List<PromotionDto> promotions;
     private WalletDto wallet;
+    private String cpf;
 
     public UserDto(User user) {
         this.id = user.getId();
@@ -28,6 +29,7 @@ public class UserDto {
         this.phone = user.getPhone();
         this.pictureUrl = user.getPictureUrl();
         this.userType = user.getUserType();
+        this.cpf = user.getCpf();
 
         if (user.getAccount() != null) {
             this.email = user.getAccount().getEmail();
@@ -50,5 +52,8 @@ public class UserDto {
         if (user.getWallet() != null) {
             this.wallet = new WalletDto(user.getWallet());
         }
+    }
+    public String getCpf() {
+        return cpf;
     }
 }
