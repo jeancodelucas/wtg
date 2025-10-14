@@ -341,30 +341,40 @@ public class UserService {
     }
 
     @Transactional
-    public Account processGoogleUser(GoogleIdToken.Payload payload) {
+    public Account processGoogleUser(GoogleIdToken.Payload payload, Double latitude, Double longitude) { // Assinatura do método alterada
         String email = payload.getEmail();
         Optional<Account> optionalAccount = accountRepository.findByEmail(email);
 
+        Account account;
         if (optionalAccount.isPresent()) {
-            return optionalAccount.get();
+            account = optionalAccount.get();
         } else {
             User user = new User();
             user.setFirstName((String) payload.get("given_name"));
             user.setFullName((String) payload.get("family_name"));
             user.setPictureUrl((String) payload.get("picture"));
 
-            Account account = new Account();
+            account = new Account();
             account.setEmail(email);
-            account.setUserName(email);
+            account.setUserName(email); // Pode ser ajustado conforme a regra de negócio
             account.setLoginProvider("google");
             account.setActive(true);
             user.setAccount(account);
 
             assignFreePlanToUser(user);
 
+            // Salva o usuário para gerar o ID antes de atualizar a localização
             userRepository.save(user);
-            return account;
         }
+
+        // --- CORREÇÃO APLICADA AQUI ---
+        // Atualiza a localização do usuário após o login/criação
+        if (latitude != null && longitude != null) {
+            updateUserLocation(account.getEmail(), latitude, longitude);
+        }
+        // --- FIM DA CORREÇÃO ---
+
+        return account;
     }
 
     private void assignFreePlanToUser(User user) {

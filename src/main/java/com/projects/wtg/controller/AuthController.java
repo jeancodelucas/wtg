@@ -123,7 +123,8 @@ public class AuthController {
             GoogleIdToken.Payload payload = idToken.getPayload();
             String email = payload.getEmail();
 
-            Account account = userService.processGoogleUser(payload);
+            // O userService já salva a localização, mantemos a chamada
+            Account account = userService.processGoogleUser(payload, loginRequest.getLatitude(), loginRequest.getLongitude());
 
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
             SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -133,9 +134,24 @@ public class AuthController {
             UserDto userDto = new UserDto(account.getUser());
             boolean isRegistrationComplete = userDto.getCpf() != null && !userDto.getCpf().isEmpty();
 
+            // --- CORREÇÃO APLICADA AQUI ---
+            // 1. Lógica para buscar promoções próximas (idêntica à do login tradicional)
+            List<PromotionDto> nearbyPromotions = null;
+            if (loginRequest.getLatitude() != null && loginRequest.getLongitude() != null) {
+                // Usando um raio padrão de 5km
+                List<Promotion> promotions = promotionService.findWithFilters(null, loginRequest.getLatitude(), loginRequest.getLongitude(), 5.0);
+                nearbyPromotions = promotions.stream().map(PromotionDto::new).collect(Collectors.toList());
+            }
+
+            // 2. Montando o corpo da resposta para ser igual ao do login tradicional
             Map<String, Object> responseBody = new HashMap<>();
             responseBody.put("user", userDto);
-            responseBody.put("isRegistrationComplete", isRegistrationComplete);
+            responseBody.put("isRegistrationComplete", isRegistrationComplete); // Mantém este campo para o fluxo de cadastro
+            responseBody.put("nearbyPromotions", nearbyPromotions); // Adiciona as promoções
+            responseBody.put("status", "ok");
+            responseBody.put("messagem", "logado com SSO");
+            responseBody.put("code", 200);
+            // --- FIM DA CORREÇÃO ---
 
             return ResponseEntity.ok(responseBody);
 
