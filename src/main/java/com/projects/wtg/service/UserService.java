@@ -133,18 +133,24 @@ public class UserService {
         Account account = accountRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Conta não encontrada para o e-mail: " + email));
 
-        String token = UUID.randomUUID().toString();
+        String token = String.format("%04d", new Random().nextInt(10000));
         account.setToken(token);
+        // Adiciona uma expiração para o token, por exemplo, 10 minutos
+        account.setRegistrationTokenExpiration(LocalDateTime.now().plusMinutes(10));
         accountRepository.save(account);
 
-        String resetLink = "http://localhost:3000/reset-password?token=" + token;
-        emailService.sendPasswordResetEmail(email, resetLink);
+        // Envia o e-mail com o token
+        emailService.sendPasswordResetTokenEmail(email, token);
     }
 
     @Transactional
     public void resetPassword(String token, String newPassword) {
         Account account = accountRepository.findByToken(token)
                 .orElseThrow(() -> new IllegalArgumentException("Token de redefinição de senha inválido ou expirado."));
+
+        if (account.getRegistrationTokenExpiration() == null || account.getRegistrationTokenExpiration().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Token expirado. Por favor, solicite um novo.");
+        }
 
         if (!isPasswordStrong(newPassword)) {
             throw new IllegalArgumentException("A nova senha não atende aos critérios de segurança.");

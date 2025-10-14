@@ -15,14 +15,13 @@ public class EmailService {
         this.mailSender = mailSender;
     }
 
-    public void sendPasswordResetEmail(String to, String link) {
+    public void sendPasswordResetTokenEmail(String to, String token) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);
-        message.setSubject("Redefinição de Senha - WTG App");
-        message.setText("Olá,\n\nPara redefinir sua senha, clique no link abaixo:\n" + link);
+        message.setSubject("Redefinição de Senha - La Rua App");
+        message.setText("Olá,\n\nSeu código para redefinição de senha é: " + token + "\n\nEste código expira em 10 minutos.");
         mailSender.send(message);
     }
-
     public void sendRegistrationTokenEmail(String to, String token) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);

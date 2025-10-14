@@ -59,7 +59,14 @@ public class SecurityConfig {
                 .userDetailsService(jpaUserDetailsService)
                 .authorizeHttpRequests(auth -> auth
                         // Endpoints públicos
-                        .requestMatchers("/api/users/register", "/api/auth/login", "/api/auth/google", "/error").permitAll()
+                        .requestMatchers(
+                                "/api/users/register",
+                                "/api/auth/login",
+                                "/api/auth/google",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/error"
+                        ).permitAll()
                         // Protege todos os endpoints de perfil do usuário logado
                         .requestMatchers("/api/profile/me/**").authenticated()
                         .requestMatchers("/api/promotions/**").authenticated() // Protege os endpoints de promoção
