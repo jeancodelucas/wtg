@@ -5,6 +5,7 @@ package com.projects.wtg.service;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.projects.wtg.dto.PromotionDataDto;
 import com.projects.wtg.dto.UserRegistrationDto;
+import com.projects.wtg.dto.UserUpdateDto;
 import com.projects.wtg.exception.EmailAlreadyExistsException;
 import com.projects.wtg.model.*;
 import com.projects.wtg.repository.AccountRepository;
@@ -15,6 +16,8 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,18 +26,12 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.regex.Pattern;
-import com.projects.wtg.model.PlanType;
-import com.projects.wtg.model.PlanStatus;
-import com.projects.wtg.model.UserPlan;
-import com.projects.wtg.dto.UserUpdateDto;
 
 @Service
 public class UserService {
@@ -61,7 +58,6 @@ public class UserService {
 
     @Transactional
     public void initiateRegistration(String email) {
-        // Verifica se o e-mail já existe e se a conta já está completa (tem palavra-passe)
         accountRepository.findByEmail(email).ifPresent(account -> {
             if (account.getPassword() != null) {
                 throw new EmailAlreadyExistsException("Este e-mail já está cadastrado. Por favor, faça o login.");
@@ -71,13 +67,9 @@ public class UserService {
         String token = String.format("%04d", new Random().nextInt(10000));
         LocalDateTime expiration = LocalDateTime.now().plusMinutes(1).plusSeconds(30);
 
-        // Se a conta já existe (de uma tentativa anterior), reutiliza-a. Senão, cria uma nova.
         Account account = accountRepository.findByEmail(email).orElse(new Account());
-
         account.setEmail(email);
 
-        // *** LINHA DA CORREÇÃO ADICIONADA AQUI ***
-        // Define um userName padrão a partir do e-mail para satisfazer a restrição da base de dados.
         if (account.getUserName() == null || account.getUserName().isEmpty()) {
             account.setUserName(email.split("@")[0]);
         }
@@ -86,12 +78,10 @@ public class UserService {
         account.setRegistrationTokenExpiration(expiration);
         accountRepository.save(account);
 
-        // Bloco try-catch para tornar o envio de e-mail não-bloqueante
         try {
             emailService.sendRegistrationTokenEmail(email, token);
             logger.info("Token de registo enviado com sucesso para: {}", email);
         } catch (Exception e) {
-            // Se o envio de e-mail falhar, registamos o erro mas não quebramos a aplicação
             logger.error("Falha ao enviar e-mail de token para {}. O erro foi: {}", email, e.getMessage());
         }
     }
@@ -116,7 +106,7 @@ public class UserService {
     }
 
     @Transactional
-    @Scheduled(fixedRate = 90000) // Executa a cada 1 minuto e 30 segundos
+    @Scheduled(fixedRate = 90000)
     public void tokenCleanupScheduler() {
         accountRepository.findAll().forEach(account -> {
             if (account.getRegistrationToken() != null && account.getRegistrationTokenExpiration().isBefore(LocalDateTime.now())) {
@@ -131,12 +121,10 @@ public class UserService {
     @Transactional
     public User updateUser(String email, UserUpdateDto userUpdateDto) {
         User user = findUserByEmail(email);
-
         user.setFirstName(userUpdateDto.getFirstName());
         user.setCpf(userUpdateDto.getCpf());
         user.setBirthday(userUpdateDto.getBirthday());
         user.setPronouns(userUpdateDto.getPronouns());
-
         return userRepository.save(user);
     }
 
@@ -170,6 +158,7 @@ public class UserService {
 
     @Transactional
     public User createUserWithAccount(UserRegistrationDto userRegistrationDto, Authentication authentication) {
+        // --- ETAPA 1: VALIDAÇÕES E LEITURAS ---
         Account account = accountRepository.findByEmail(userRegistrationDto.getEmail())
                 .orElseThrow(() -> new EntityNotFoundException("E-mail não verificado. Por favor, inicie o processo de registro."));
 
@@ -179,46 +168,23 @@ public class UserService {
         if (Boolean.FALSE.equals(account.getEmailVerified())) {
             throw new IllegalStateException("E-mail não verificado. Por favor, valide o token enviado.");
         }
-
-
-        if (userRegistrationDto.getPlanId() != null) {
-            if (authentication == null || !authentication.isAuthenticated()) {
-                throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
-            }
-            String adminEmail = authentication.getName();
-            User adminUser = this.findUserByEmail(adminEmail);
-            if (adminUser.getUserType() != UserType.ADMIN) {
-                throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
-            }
-        }
-
         if (!isPasswordStrong(userRegistrationDto.getPassword())) {
             throw new IllegalArgumentException("A senha não atende aos critérios de segurança...");
         }
-
         if (!userRegistrationDto.getPassword().equals(userRegistrationDto.getConfirmPassword())) {
             throw new IllegalArgumentException("As senhas não coincidem.");
         }
 
-        User user = new User();
-        user.setFullName(userRegistrationDto.getFullName());
-        user.setFirstName(userRegistrationDto.getFirstName());
-        user.setCpf(userRegistrationDto.getCpf());
-        user.setPronouns(userRegistrationDto.getPronouns());
-
-        if (userRegistrationDto.getLatitude() != null && userRegistrationDto.getLongitude() != null) {
-            Point userPoint = geometryFactory.createPoint(new Coordinate(userRegistrationDto.getLongitude(), userRegistrationDto.getLatitude()));
-            user.setPoint(userPoint);
-        }
-
-        account.setUserName(userRegistrationDto.getUserName());
-        account.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
-        account.setActive(true);
-
-        user.setAccount(account);
-
+        // Busca o plano ANTES de modificar as entidades
         Plan planToAssign;
         if (userRegistrationDto.getPlanId() != null) {
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
+            }
+            User adminUser = this.findUserByEmail(authentication.getName());
+            if (adminUser.getUserType() != UserType.ADMIN) {
+                throw new AccessDeniedException("Apenas administradores podem criar usuários com planos específicos.");
+            }
             planToAssign = planRepository.findById(userRegistrationDto.getPlanId())
                     .orElseThrow(() -> new EntityNotFoundException("Plano com ID " + userRegistrationDto.getPlanId() + " não encontrado."));
         } else {
@@ -226,6 +192,28 @@ public class UserService {
                     .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
         }
 
+        // --- ETAPA 2: CRIAÇÃO E ASSOCIAÇÃO DE OBJETOS ---
+        User user = new User();
+        user.setFullName(userRegistrationDto.getFullName());
+        user.setFirstName(userRegistrationDto.getFirstName());
+        user.setCpf(userRegistrationDto.getCpf());
+        user.setPronouns(userRegistrationDto.getPronouns());
+        user.setBirthday(userRegistrationDto.getBirthday());
+
+        if (userRegistrationDto.getLatitude() != null && userRegistrationDto.getLongitude() != null) {
+            Point userPoint = geometryFactory.createPoint(new Coordinate(userRegistrationDto.getLongitude(), userRegistrationDto.getLatitude()));
+            user.setPoint(userPoint);
+        }
+
+        // Associa o usuário à conta existente
+        user.setAccount(account);
+
+        // Atualiza os dados da conta
+        account.setUserName(userRegistrationDto.getUserName());
+        account.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
+        account.setActive(true);
+
+        // Cria e associa o plano
         UserPlan newUserPlan = new UserPlan();
         newUserPlan.setId(new UserPlanId(null, planToAssign.getId()));
         newUserPlan.setUser(user);
@@ -252,6 +240,9 @@ public class UserService {
             user.addPromotion(promotion);
         }
 
+        // --- ETAPA 3: PERSISTÊNCIA ---
+        // Salva o usuário. Devido ao CascadeType.ALL, todas as entidades associadas
+        // (Account, UserPlan, Promotion, Address) serão salvas na ordem correta.
         return userRepository.save(user);
     }
 
@@ -352,29 +343,21 @@ public class UserService {
     @Transactional
     public Account processGoogleUser(GoogleIdToken.Payload payload) {
         String email = payload.getEmail();
-
         Optional<Account> optionalAccount = accountRepository.findByEmail(email);
 
         if (optionalAccount.isPresent()) {
-            // Se o usuário já existe, apenas retorna a conta
             return optionalAccount.get();
         } else {
-            // Se não existe, cria um novo usuário com cadastro incompleto
             User user = new User();
-
-            // --- CORREÇÃO DEFINITIVA APLICADA AQUI ---
-            // Usando o método get() e convertendo para String
             user.setFirstName((String) payload.get("given_name"));
             user.setFullName((String) payload.get("family_name"));
             user.setPictureUrl((String) payload.get("picture"));
-            // -------------------------------------------
 
             Account account = new Account();
             account.setEmail(email);
-            account.setUserName(email); // Username default
+            account.setUserName(email);
             account.setLoginProvider("google");
             account.setActive(true);
-
             user.setAccount(account);
 
             assignFreePlanToUser(user);
@@ -389,12 +372,7 @@ public class UserService {
             UserPlan userPlan = new UserPlan();
             userPlan.setUser(user);
             userPlan.setPlan(plan);
-
-            // --- CORREÇÃO APLICADA AQUI ---
-            // O método correto é 'setPlanStatus', não 'setStatus'
             userPlan.setPlanStatus(PlanStatus.ACTIVE);
-            // ---------------------------------
-
             user.getUserPlans().add(userPlan);
         });
     }
