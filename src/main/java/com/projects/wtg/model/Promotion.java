@@ -10,6 +10,8 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import org.locationtech.jts.geom.Point;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList; // Import necessário
+import java.util.List;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -59,4 +61,9 @@ public class Promotion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
+
+    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("promotion-comments")
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
 }

@@ -67,6 +67,7 @@ public class SecurityConfig {
                                 "/api/auth/reset-password",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers("/api/comments/**").authenticated()
                         // Protege todos os endpoints de perfil do usuário logado
                         .requestMatchers("/api/profile/me/**").authenticated()
                         .requestMatchers("/api/promotions/**").authenticated() // Protege os endpoints de promoção

@@ -78,6 +78,11 @@ public class User {
     @ToString.Exclude
     private Wallet wallet;
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference("user-comments")
+    @Builder.Default
+    private List<Comment> comments = new ArrayList<>();
+
     public void setAccount(Account account) {
         if (account == null) {
             if (this.account != null) {
@@ -103,5 +108,14 @@ public class User {
             wallet.setUser(this);
         }
         this.wallet = wallet;
+    }
+    public void addComment(Comment comment) {
+        comments.add(comment);
+        comment.setUser(this);
+    }
+
+    public void removeComment(Comment comment) {
+        comments.remove(comment);
+        comment.setUser(null);
     }
 }
