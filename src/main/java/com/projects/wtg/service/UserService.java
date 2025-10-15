@@ -135,11 +135,9 @@ public class UserService {
 
         String token = String.format("%04d", new Random().nextInt(10000));
         account.setToken(token);
-        // Adiciona uma expiração para o token, por exemplo, 10 minutos
         account.setRegistrationTokenExpiration(LocalDateTime.now().plusMinutes(10));
         accountRepository.save(account);
 
-        // Envia o e-mail com o token
         emailService.sendPasswordResetTokenEmail(email, token);
     }
 
@@ -164,7 +162,6 @@ public class UserService {
 
     @Transactional
     public User createUserWithAccount(UserRegistrationDto userRegistrationDto, Authentication authentication) {
-        // --- ETAPA 1: VALIDAÇÕES E LEITURAS ---
         Account account = accountRepository.findByEmail(userRegistrationDto.getEmail())
                 .orElseThrow(() -> new EntityNotFoundException("E-mail não verificado. Por favor, inicie o processo de registro."));
 
@@ -181,7 +178,6 @@ public class UserService {
             throw new IllegalArgumentException("As senhas não coincidem.");
         }
 
-        // Busca o plano ANTES de modificar as entidades
         Plan planToAssign;
         if (userRegistrationDto.getPlanId() != null) {
             if (authentication == null || !authentication.isAuthenticated()) {
@@ -198,7 +194,6 @@ public class UserService {
                     .orElseThrow(() -> new IllegalStateException("Plano 'FREE' não encontrado no banco de dados."));
         }
 
-        // --- ETAPA 2: CRIAÇÃO E ASSOCIAÇÃO DE OBJETOS ---
         User user = new User();
         user.setFullName(userRegistrationDto.getFullName());
         user.setFirstName(userRegistrationDto.getFirstName());
@@ -211,15 +206,12 @@ public class UserService {
             user.setPoint(userPoint);
         }
 
-        // Associa o usuário à conta existente
         user.setAccount(account);
 
-        // Atualiza os dados da conta
         account.setUserName(userRegistrationDto.getUserName());
         account.setPassword(passwordEncoder.encode(userRegistrationDto.getPassword()));
         account.setActive(true);
 
-        // Cria e associa o plano
         UserPlan newUserPlan = new UserPlan();
         newUserPlan.setId(new UserPlanId(null, planToAssign.getId()));
         newUserPlan.setUser(user);
@@ -246,9 +238,6 @@ public class UserService {
             user.addPromotion(promotion);
         }
 
-        // --- ETAPA 3: PERSISTÊNCIA ---
-        // Salva o usuário. Devido ao CascadeType.ALL, todas as entidades associadas
-        // (Account, UserPlan, Promotion, Address) serão salvas na ordem correta.
         return userRepository.save(user);
     }
 
@@ -347,7 +336,7 @@ public class UserService {
     }
 
     @Transactional
-    public Account processGoogleUser(GoogleIdToken.Payload payload, Double latitude, Double longitude) { // Assinatura do método alterada
+    public Account processGoogleUser(GoogleIdToken.Payload payload, Double latitude, Double longitude) {
         String email = payload.getEmail();
         Optional<Account> optionalAccount = accountRepository.findByEmail(email);
 
@@ -362,23 +351,19 @@ public class UserService {
 
             account = new Account();
             account.setEmail(email);
-            account.setUserName(email); // Pode ser ajustado conforme a regra de negócio
+            account.setUserName(email);
             account.setLoginProvider("google");
             account.setActive(true);
             user.setAccount(account);
 
             assignFreePlanToUser(user);
 
-            // Salva o usuário para gerar o ID antes de atualizar a localização
             userRepository.save(user);
         }
 
-        // --- CORREÇÃO APLICADA AQUI ---
-        // Atualiza a localização do usuário após o login/criação
         if (latitude != null && longitude != null) {
             updateUserLocation(account.getEmail(), latitude, longitude);
         }
-        // --- FIM DA CORREÇÃO ---
 
         return account;
     }
@@ -386,9 +371,14 @@ public class UserService {
     private void assignFreePlanToUser(User user) {
         planRepository.findByType(PlanType.FREE).ifPresent(plan -> {
             UserPlan userPlan = new UserPlan();
+            // CORREÇÃO APLICADA: Sintaxe correta e definição das datas do plano
+            userPlan.setId(new UserPlanId(null, plan.getId()));
             userPlan.setUser(user);
             userPlan.setPlan(plan);
             userPlan.setPlanStatus(PlanStatus.ACTIVE);
+            LocalDateTime now = LocalDateTime.now();
+            userPlan.setStartedAt(now);
+            setFinishAtByPlanType(userPlan, now);
             user.getUserPlans().add(userPlan);
         });
     }

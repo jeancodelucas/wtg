@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate; // Importe
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
@@ -47,6 +47,7 @@ public class Account {
 
     @JsonBackReference
     @ToString.Exclude
+    @EqualsAndHashCode.Exclude // <-- CORREÇÃO ADICIONADA AQUI
     @OneToOne(mappedBy = "account")
     private User user;
 }

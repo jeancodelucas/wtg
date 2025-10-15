@@ -1,8 +1,13 @@
 package com.projects.wtg.controller;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.projects.wtg.dto.*;
 import com.projects.wtg.model.Account;
 import com.projects.wtg.model.Promotion;
+import com.projects.wtg.model.User;
 import com.projects.wtg.repository.AccountRepository;
 import com.projects.wtg.service.PromotionService;
 import com.projects.wtg.service.UserService;
@@ -22,14 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.*;
-
-import java.util.Map;
 import java.util.stream.Collectors;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
-import java.util.Collections;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -49,7 +47,7 @@ public class AuthController {
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleWebClientId;
-    @Value("${google.ios.client-id}") // Injeta a nova propriedade
+    @Value("${google.ios.client-id}")
     private String googleIosClientId;
 
 
@@ -71,7 +69,6 @@ public class AuthController {
                     .orElseThrow(() -> new IllegalStateException("Usuário logado não encontrado no banco de dados."));
 
             String message;
-
             if (!account.getActive()) {
                 userService.reactivateAccount(account);
                 message = "Usuário foi reativado com sucesso.";
@@ -79,9 +76,10 @@ public class AuthController {
                 message = "logado";
             }
 
-            UserDto userDto = new UserDto(account.getUser());
+            User user = account.getUser();
+            UserDto userDto = new UserDto(user);
+            boolean isRegistrationComplete = user.getCpf() != null && !user.getCpf().isEmpty() && user.getBirthday() != null;
 
-            // Lógica para buscar promoções próximas
             List<PromotionDto> nearbyPromotions = null;
             if (loginRequest.getLatitude() != null && loginRequest.getLongitude() != null) {
                 List<Promotion> promotions = promotionService.findWithFilters(null, loginRequest.getLatitude(), loginRequest.getLongitude(), 5.0);
@@ -89,6 +87,8 @@ public class AuthController {
             }
 
             LoginResponseDto response = new LoginResponseDto("ok", message, 200, userDto, nearbyPromotions);
+            response.setIsRegistrationComplete(isRegistrationComplete);
+
             return ResponseEntity.ok(response);
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -123,7 +123,6 @@ public class AuthController {
             GoogleIdToken.Payload payload = idToken.getPayload();
             String email = payload.getEmail();
 
-            // O userService já salva a localização, mantemos a chamada
             Account account = userService.processGoogleUser(payload, loginRequest.getLatitude(), loginRequest.getLongitude());
 
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(email, null, Collections.emptyList());
@@ -131,29 +130,20 @@ public class AuthController {
             HttpSession session = request.getSession(true);
             session.setAttribute("SPRING_SECURITY_CONTEXT", SecurityContextHolder.getContext());
 
-            UserDto userDto = new UserDto(account.getUser());
-            boolean isRegistrationComplete = userDto.getCpf() != null && !userDto.getCpf().isEmpty();
+            User user = account.getUser();
+            UserDto userDto = new UserDto(user);
+            boolean isRegistrationComplete = user.getCpf() != null && !user.getCpf().isEmpty() && user.getBirthday() != null;
 
-            // --- CORREÇÃO APLICADA AQUI ---
-            // 1. Lógica para buscar promoções próximas (idêntica à do login tradicional)
             List<PromotionDto> nearbyPromotions = null;
             if (loginRequest.getLatitude() != null && loginRequest.getLongitude() != null) {
-                // Usando um raio padrão de 5km
                 List<Promotion> promotions = promotionService.findWithFilters(null, loginRequest.getLatitude(), loginRequest.getLongitude(), 5.0);
                 nearbyPromotions = promotions.stream().map(PromotionDto::new).collect(Collectors.toList());
             }
 
-            // 2. Montando o corpo da resposta para ser igual ao do login tradicional
-            Map<String, Object> responseBody = new HashMap<>();
-            responseBody.put("user", userDto);
-            responseBody.put("isRegistrationComplete", isRegistrationComplete); // Mantém este campo para o fluxo de cadastro
-            responseBody.put("nearbyPromotions", nearbyPromotions); // Adiciona as promoções
-            responseBody.put("status", "ok");
-            responseBody.put("messagem", "logado com SSO");
-            responseBody.put("code", 200);
-            // --- FIM DA CORREÇÃO ---
+            LoginResponseDto response = new LoginResponseDto("ok", "logado com SSO", 200, userDto, nearbyPromotions);
+            response.setIsRegistrationComplete(isRegistrationComplete);
 
-            return ResponseEntity.ok(responseBody);
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Erro no login com Google: " + e.getMessage()));

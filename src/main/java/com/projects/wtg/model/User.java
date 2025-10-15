@@ -38,12 +38,6 @@ public class User {
     @Column
     private String pronouns;
 
-//    @Column(name = "last_latitude")
-//    private Double lastLatitude;
-//
-//    @Column(name = "last_longitude")
-//    private Double lastLongitude;
-
     @CreatedDate
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -59,6 +53,7 @@ public class User {
 
     @JsonManagedReference
     @ToString.Exclude
+    @EqualsAndHashCode.Exclude // <-- CORREÇÃO ADICIONADA AQUI
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "account_id", referencedColumnName = "id")
     private Account account;
