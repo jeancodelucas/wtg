@@ -16,6 +16,7 @@ public class PromotionDto {
     private Boolean active;
     private AddressDto address;
     private PromotionType promotionType;
+    private boolean highlight;
 
     // Construtor para facilitar a conversão da entidade para DTO
     public PromotionDto(Promotion promotion) {
@@ -25,6 +26,7 @@ public class PromotionDto {
         this.obs = promotion.getObs();
         this.active = promotion.getActive();
         this.promotionType = promotion.getPromotionType();
+        this.highlight = promotion.isHighlight();
 
         if (promotion.getAddress() != null) {
             this.address = new AddressDto(promotion.getAddress());

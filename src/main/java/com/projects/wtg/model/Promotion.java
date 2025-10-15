@@ -27,6 +27,7 @@ public class Promotion {
     private String description;
     private boolean free;
     private String obs;
+    private boolean highlight;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
