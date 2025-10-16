@@ -68,10 +68,33 @@ CREATE TABLE appwtg.wallet (
     id bigint NOT NULL, user_id bigint NOT NULL, created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+-- Adicione este bloco ao seu arquivo init.sql
+
+-- 1. CRIAR A NOVA TABELA PARA AS IMAGENS DA PROMOÇÃO
+CREATE TABLE appwtg.promotion_image (
+    id BIGINT NOT NULL,
+    promotion_id BIGINT NOT NULL,
+    s3_key VARCHAR(255) NOT NULL,
+    upload_order INTEGER NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 
 -- 4. Criar as sequences
 CREATE SEQUENCE appwtg.account_id_seq AS integer;
 ALTER TABLE ONLY appwtg.account ALTER COLUMN id SET DEFAULT nextval('appwtg.account_id_seq'::regclass);
+
+-- 2. CRIAR A SEQUENCE PARA O ID DA NOVA TABELA
+CREATE SEQUENCE appwtg.promotion_image_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+ALTER TABLE ONLY appwtg.promotion_image ALTER COLUMN id SET DEFAULT nextval('appwtg.promotion_image_id_seq'::regclass);
+
 
 CREATE SEQUENCE appwtg.address_id_seq AS integer;
 ALTER TABLE ONLY appwtg.address ALTER COLUMN id SET DEFAULT nextval('appwtg.address_id_seq'::regclass);
@@ -193,7 +216,14 @@ ALTER TABLE ONLY appwtg.promotion ADD CONSTRAINT fk_user FOREIGN KEY (user_id) R
 ALTER TABLE ONLY appwtg.wallet ADD CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES appwtg."user"(id) ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE ONLY appwtg.user_plan ADD CONSTRAINT user_plan_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES appwtg.plan(id);
 ALTER TABLE ONLY appwtg.user_plan ADD CONSTRAINT user_plan_user_id_fkey FOREIGN KEY (user_id) REFERENCES appwtg."user"(id);
+-- 3. DEFINIR A CHAVE PRIMÁRIA
+ALTER TABLE ONLY appwtg.promotion_image
+    ADD CONSTRAINT promotion_image_pkey PRIMARY KEY (id);
+-- 4. CRIAR A RELAÇÃO (CHAVE ESTRANGEIRA)
+ALTER TABLE ONLY appwtg.promotion_image
+    ADD CONSTRAINT fk_promotion_image_promotion FOREIGN KEY (promotion_id) REFERENCES appwtg.promotion(id) ON DELETE CASCADE;
 
+-- Fim do bloco a ser adicionado
 -- Bloco CORRIGIDO para Sincronizar TODAS as sequências
 DO $$
 DECLARE

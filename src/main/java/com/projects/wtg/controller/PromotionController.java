@@ -1,20 +1,21 @@
 package com.projects.wtg.controller;
 
-import com.projects.wtg.dto.CreatePromotionRequestDto;
-import com.projects.wtg.dto.PromotionDto;
-import com.projects.wtg.dto.PromotionEditDto;
-import com.projects.wtg.dto.PromotionEditResponseDto;
-import com.projects.wtg.dto.UserDto;
+import com.projects.wtg.dto.*;
 import com.projects.wtg.model.Promotion;
 import com.projects.wtg.model.PromotionType;
 import com.projects.wtg.model.User;
 import com.projects.wtg.service.PromotionService;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException; // <<< --- CORREÇÃO APLICADA AQUI ---
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -74,5 +75,48 @@ public class PromotionController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(dtos);
+    }
+
+    @PostMapping(value = "/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadPromotionImages(
+            @PathVariable Long id,
+            @RequestParam("images") List<MultipartFile> files,
+            Authentication authentication) {
+
+        if (files.isEmpty() || files.size() > 6) {
+            return ResponseEntity.badRequest().body("Você deve enviar de 1 a 6 imagens.");
+        }
+
+        try {
+            String userEmail = authentication.getName();
+            List<PromotionImageDto> uploadedImages = promotionService.uploadImages(id, files, userEmail);
+            return new ResponseEntity<>(uploadedImages, HttpStatus.CREATED);
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Erro durante o upload do arquivo.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/image-urls")
+    public ResponseEntity<List<String>> getPromotionImageViewUrls(@PathVariable Long id) {
+        List<String> urls = promotionService.getImageViewUrls(id);
+        return ResponseEntity.ok(urls);
+    }
+
+    @DeleteMapping("/images/{imageId}")
+    public ResponseEntity<Void> deletePromotionImage(
+            @PathVariable Long imageId,
+            Authentication authentication) {
+
+        try {
+            String userEmail = authentication.getName();
+            promotionService.deleteImage(imageId, userEmail);
+            return ResponseEntity.noContent().build(); // Retorna 204 No Content
+        } catch (AccessDeniedException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

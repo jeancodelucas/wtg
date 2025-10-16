@@ -12,6 +12,7 @@ import org.locationtech.jts.geom.Point;
 import java.time.LocalDateTime;
 import java.util.ArrayList; // Import necessário
 import java.util.List;
+import java.util.ArrayList; //
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
@@ -66,4 +67,9 @@ public class Promotion {
     @JsonManagedReference("promotion-comments")
     @Builder.Default
     private List<Comment> comments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "promotion", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference("promotion-images")
+    @Builder.Default
+    private List<PromotionImage> images = new ArrayList<>();
 }

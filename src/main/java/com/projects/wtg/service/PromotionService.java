@@ -5,21 +5,21 @@ import com.projects.wtg.exception.PromotionAlreadyExistsException;
 import com.projects.wtg.model.*;
 import com.projects.wtg.repository.*;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
-
+import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class PromotionService {
@@ -29,13 +29,19 @@ public class PromotionService {
     private final UserPlanRepository userPlanRepository;
     private final UserRepository userRepository;
     private final PlanRepository planRepository;
+    private final S3Service s3Service;
+    private final PromotionImageRepository promotionImageRepository;
 
-    public PromotionService(PromotionRepository promotionRepository, AccountRepository accountRepository, UserPlanRepository userPlanRepository, UserRepository userRepository, PlanRepository planRepository) {
+    // --- CORREÇÃO APLICADA AQUI ---
+    // O construtor foi atualizado para receber TODAS as dependências necessárias.
+    public PromotionService(PromotionRepository promotionRepository, AccountRepository accountRepository, UserPlanRepository userPlanRepository, UserRepository userRepository, PlanRepository planRepository, S3Service s3Service, PromotionImageRepository promotionImageRepository) {
         this.promotionRepository = promotionRepository;
         this.accountRepository = accountRepository;
         this.userPlanRepository = userPlanRepository;
         this.userRepository = userRepository;
         this.planRepository = planRepository;
+        this.s3Service = s3Service; // Injeção adicionada
+        this.promotionImageRepository = promotionImageRepository; // Injeção adicionada
     }
 
     @Transactional
@@ -89,7 +95,6 @@ public class PromotionService {
 
     @Transactional(readOnly = true)
     public List<Promotion> findWithFilters(PromotionType promotionType, Double latitude, Double longitude, Double radius) {
-        // Validação da nova lógica
         if (latitude != null || longitude != null || radius != null) {
             if (latitude == null || longitude == null || radius == null) {
                 throw new IllegalArgumentException("Para filtrar por localização, os campos latitude, longitude e radius são obrigatórios.");
@@ -106,18 +111,14 @@ public class PromotionService {
 
             idsInRadius = promotionRepository.findIdsWithinRadius(userLocation, radiusInMeters);
 
-            // Se a busca por raio não retorna nada, a lista final também será vazia.
             if (idsInRadius.isEmpty()) {
                 return Collections.emptyList();
             }
         }
 
-        // Cria a especificação combinando os filtros
         Specification<Promotion> spec = PromotionSpecifications.createSpecification(promotionType, idsInRadius);
-
         return promotionRepository.findAll(spec);
     }
-
 
     private String handlePromotionActivation(User user, Promotion promotion, Boolean active, Long planId) {
         promotion.setActive(active);
@@ -157,7 +158,7 @@ public class PromotionService {
                 user.getUserPlans().add(futurePlan);
 
             } else {
-                UserPlan newUserPlan = createNewUserPlan(user, planToAssign, LocalDateTime.now());
+                createNewUserPlan(user, planToAssign, LocalDateTime.now());
                 if (user.getPromotions() != null) {
                     user.getPromotions().forEach(p -> p.setAllowUserActivePromotion(true));
                 }
@@ -259,5 +260,73 @@ public class PromotionService {
             address.setPostalCode(dto.getAddress().getPostalCode());
             address.setObs(dto.getAddress().getObs());
         }
+    }
+
+    @Transactional
+    public List<PromotionImageDto> uploadImages(Long promotionId, List<MultipartFile> files, String userEmail) throws IOException {
+        User user = userRepository.findByAccountEmail(userEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
+
+        Promotion promotion = promotionRepository.findByIdAndUser(promotionId, user)
+                .orElseThrow(() -> new EntityNotFoundException("Promoção não encontrada ou não pertence a este usuário."));
+
+        if (promotion.getImages().size() + files.size() > 6) {
+            throw new IllegalArgumentException("Uma promoção não pode ter mais de 6 imagens.");
+        }
+
+        List<PromotionImage> newImages = new ArrayList<>();
+        int currentOrder = promotion.getImages().stream()
+                .mapToInt(PromotionImage::getUploadOrder)
+                .max()
+                .orElse(0);
+
+        for (MultipartFile file : files) {
+            String s3Key = s3Service.uploadFile(file);
+
+            PromotionImage newImage = PromotionImage.builder()
+                    .promotion(promotion)
+                    .s3Key(s3Key)
+                    .uploadOrder(++currentOrder)
+                    .build();
+
+            newImages.add(newImage);
+        }
+
+        promotion.getImages().addAll(newImages);
+        promotionRepository.save(promotion);
+
+        return newImages.stream()
+                .map(PromotionImageDto::new)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> getImageViewUrls(Long promotionId) {
+        Promotion promotion = promotionRepository.findById(promotionId)
+                .orElseThrow(() -> new EntityNotFoundException("Promoção não encontrada."));
+
+        return promotion.getImages().stream()
+                .sorted(Comparator.comparing(PromotionImage::getUploadOrder))
+                .map(image -> s3Service.generatePresignedUrl(image.getS3Key()))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteImage(Long imageId, String userEmail) {
+        User user = userRepository.findByAccountEmail(userEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
+
+        PromotionImage image = promotionImageRepository.findById(imageId)
+                .orElseThrow(() -> new EntityNotFoundException("Imagem não encontrada."));
+
+        boolean isOwner = image.getPromotion().getUser().getId().equals(user.getId());
+        boolean isAdmin = user.getUserType() == UserType.ADMIN;
+
+        if (!isOwner && !isAdmin) {
+            throw new AccessDeniedException("Você não tem permissão para excluir esta imagem.");
+        }
+
+        s3Service.deleteFile(image.getS3Key());
+        promotionImageRepository.delete(image);
     }
 }
