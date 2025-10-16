@@ -25,4 +25,10 @@ public class CreatePromotionRequestDto {
     @Valid // Valida o objeto aninhado
     @NotNull(message = "O objeto 'address' é obrigatório")
     private AddressDto address;
+
+    @NotNull(message = "A latitude da promoção é obrigatória")
+    private Double latitude;
+
+    @NotNull(message = "A longitude da promoção é obrigatória")
+    private Double longitude;
 }

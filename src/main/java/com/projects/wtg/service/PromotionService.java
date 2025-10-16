@@ -31,17 +31,19 @@ public class PromotionService {
     private final PlanRepository planRepository;
     private final S3Service s3Service;
     private final PromotionImageRepository promotionImageRepository;
+    private final GeocodingService geocodingService;
 
     // --- CORREÇÃO APLICADA AQUI ---
-    // O construtor foi atualizado para receber TODAS as dependências necessárias.
-    public PromotionService(PromotionRepository promotionRepository, AccountRepository accountRepository, UserPlanRepository userPlanRepository, UserRepository userRepository, PlanRepository planRepository, S3Service s3Service, PromotionImageRepository promotionImageRepository) {
+    // O construtor foi atualizado para receber TODAS as dependências, incluindo GeocodingService.
+    public PromotionService(PromotionRepository promotionRepository, AccountRepository accountRepository, UserPlanRepository userPlanRepository, UserRepository userRepository, PlanRepository planRepository, S3Service s3Service, PromotionImageRepository promotionImageRepository, GeocodingService geocodingService) {
         this.promotionRepository = promotionRepository;
         this.accountRepository = accountRepository;
         this.userPlanRepository = userPlanRepository;
         this.userRepository = userRepository;
         this.planRepository = planRepository;
-        this.s3Service = s3Service; // Injeção adicionada
-        this.promotionImageRepository = promotionImageRepository; // Injeção adicionada
+        this.s3Service = s3Service;
+        this.promotionImageRepository = promotionImageRepository;
+        this.geocodingService = geocodingService; // Agora esta linha funciona corretamente.
     }
 
     @Transactional
@@ -55,6 +57,11 @@ public class PromotionService {
         }
 
         Promotion promotion = buildPromotionFromDto(dto);
+        if (dto.getLatitude() != null && dto.getLongitude() != null) {
+            GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+            Point point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
+            promotion.setPoint(point);
+        }
         handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
         user.addPromotion(promotion);
         return userRepository.save(user);
