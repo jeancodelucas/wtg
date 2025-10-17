@@ -33,6 +33,7 @@ public class PromotionDto {
         this.promotionType = promotion.getPromotionType();
         this.highlight = promotion.isHighlight();
         this.highlight = promotion.isHighlight();
+        this.id = promotion.getId();
 
         if (promotion.getAddress() != null) {
             this.address = new AddressDto(promotion.getAddress());
