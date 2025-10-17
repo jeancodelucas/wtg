@@ -1,3 +1,5 @@
+// src/main/java/com/projects/wtg/controller/AuthController.java
+
 package com.projects.wtg.controller;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;

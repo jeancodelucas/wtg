@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 @Data
 @NoArgsConstructor
 public class PromotionDto {
+    private Long id;
     private String title;
     private String description;
     private boolean free;

@@ -1,5 +1,6 @@
 package com.projects.wtg.dto;
 
+import com.projects.wtg.model.PromotionType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -31,4 +32,7 @@ public class CreatePromotionRequestDto {
 
     @NotNull(message = "A longitude da promoção é obrigatória")
     private Double longitude;
+
+    @NotNull(message = "O campo 'promotionType' é obrigatório")
+    private PromotionType promotionType;
 }

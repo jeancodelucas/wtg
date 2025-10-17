@@ -23,7 +23,8 @@ import java.util.ArrayList; //
 @Builder
 public class Promotion {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "promotion_id_seq")
+    @SequenceGenerator(name = "promotion_id_seq", sequenceName = "promotion_id_seq", schema = "appwtg", allocationSize = 1)
     private Long id;
 
     private String title;

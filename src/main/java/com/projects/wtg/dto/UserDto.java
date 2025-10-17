@@ -4,6 +4,7 @@ import com.projects.wtg.model.User;
 import com.projects.wtg.model.UserType;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,6 +22,8 @@ public class UserDto {
     private List<PromotionDto> promotions;
     private WalletDto wallet;
     private String cpf;
+    private LocalDate birthday;
+
 
     public UserDto(User user) {
         this.id = user.getId();
@@ -30,6 +33,7 @@ public class UserDto {
         this.pictureUrl = user.getPictureUrl();
         this.userType = user.getUserType();
         this.cpf = user.getCpf();
+        this.birthday = user.getBirthday();
 
         if (user.getAccount() != null) {
             this.email = user.getAccount().getEmail();

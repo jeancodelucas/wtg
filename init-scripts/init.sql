@@ -17,6 +17,9 @@ CREATE SCHEMA appwtg;
 CREATE TYPE appwtg.plan_status AS ENUM ('inactive', 'active', 'paused', 'readytoactive');
 CREATE TYPE appwtg.plan_type AS ENUM ('weekly', 'monthly', 'anual', 'free', 'partner');
 CREATE TYPE appwtg.user_type AS ENUM ('usuario', 'parceiro', 'premium', 'admin');
+-- CORREÇÃO: Adicionado o tipo para as promoções
+CREATE TYPE appwtg.promotion_type AS ENUM ('party', 'show', 'food', 'bigevent', 'cultural', 'other');
+
 
 -- 3. Criar as tabelas
 CREATE TABLE appwtg.account (
@@ -44,11 +47,21 @@ CREATE TABLE appwtg.plan (
     id bigint NOT NULL, plan_name character varying(100), value numeric(10,2), type appwtg.plan_type
 );
 
+-- CORREÇÃO: Tabela de promoção com a sintaxe corrigida e as colunas que faltavam
 CREATE TABLE appwtg.promotion (
-    id bigint NOT NULL, user_id bigint NOT NULL, title character varying(255) NOT NULL, description character varying(2000),
-    free boolean DEFAULT false, obs character varying(1000), created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP, address_id bigint,
-    allow_user_active_promotion boolean DEFAULT false, active boolean DEFAULT false
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    title character varying(255) NOT NULL,
+    description character varying(2000),
+    free boolean DEFAULT false,
+    obs character varying(1000),
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    address_id bigint,
+    allow_user_active_promotion boolean DEFAULT false,
+    active boolean DEFAULT false, -- Vírgula adicionada aqui
+    point geography(Point, 4326),
+    promotion_type appwtg.promotion_type
 );
 
 CREATE TABLE appwtg."user" (
@@ -68,9 +81,7 @@ CREATE TABLE appwtg.wallet (
     id bigint NOT NULL, user_id bigint NOT NULL, created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
--- Adicione este bloco ao seu arquivo init.sql
 
--- 1. CRIAR A NOVA TABELA PARA AS IMAGENS DA PROMOÇÃO
 CREATE TABLE appwtg.promotion_image (
     id BIGINT NOT NULL,
     promotion_id BIGINT NOT NULL,
@@ -85,7 +96,6 @@ CREATE TABLE appwtg.promotion_image (
 CREATE SEQUENCE appwtg.account_id_seq AS integer;
 ALTER TABLE ONLY appwtg.account ALTER COLUMN id SET DEFAULT nextval('appwtg.account_id_seq'::regclass);
 
--- 2. CRIAR A SEQUENCE PARA O ID DA NOVA TABELA
 CREATE SEQUENCE appwtg.promotion_image_id_seq
     AS integer
     START WITH 1
@@ -167,18 +177,6 @@ COPY appwtg."user" (id, first_name, full_name, birthday, active, account_id, pho
 11	sandra	sandra Carolina	\N	t	11	\N	\N	2025-09-24 18:10:26.195597	2025-09-24 18:10:26.195597	\N	\N
 \.
 
-COPY appwtg.promotion (id, user_id, title, description, free, obs, created_at, updated_at, address_id, allow_user_active_promotion, active) FROM stdin;
-1	1	Promoção de Lançamento	Desconto especial para os primeiros clientes da plataforma.	f	Válido apenas para novos cadastros.	2025-09-24 17:12:58.437489	2025-09-24 17:14:36.707463	5	t	t
-2	2	Promoção de Lançamento	Desconto especial para os primeiros clientes da plataforma.	f	Válido apenas para novos cadastros.	2025-09-24 17:19:29.439737	2025-09-24 17:20:05.889055	6	t	t
-3	3	Promoção de Lançamento	Desconto especial para os primeiros clientes da plataforma.	f	Válido apenas para novos cadastros.	2025-09-24 17:25:37.907886	2025-09-24 17:27:01.109606	7	t	t
-4	4	Promoção de Lançamento	Desconto especial para os primeiros clientes da plataforma.	f	Válido apenas para novos cadastros.	2025-09-24 17:27:57.804275	2025-09-24 17:29:07.46778	8	t	t
-5	5	Promoção de Inauguração	20% de desconto para novos usuários.	t	Válido apenas para o primeiro mês.	2025-09-24 17:49:33.156945	2025-09-24 17:49:33.156945	9	t	f
-6	8	Promoção de Inauguração	20% de desconto para novos usuários.	t	Válido apenas para o primeiro mês.	2025-09-24 18:06:46.370689	2025-09-24 18:06:46.370689	10	t	t
-7	9	Promoção de Inauguração	20% de desconto para novos usuários.	t	Válido apenas para o primeiro mês.	2025-09-24 18:07:21.369485	2025-09-24 18:07:21.369485	11	t	f
-8	10	Promoção de Lançamento	Desconto especial para os primeiros clientes da plataforma.	f	\N	2025-09-24 18:09:51.156042	2025-09-24 18:09:51.156042	12	t	t
-9	11	Promoção de Lançamento	Desconto especial para os primeiros clientes da plataforma.	f	Válido aaaaapenas para novos cadastros.	2025-09-24 18:10:38.264465	2025-09-24 19:25:11.597015	13	f	f
-\.
-
 COPY appwtg.user_plan (id, user_id, plan_id, started_at, finish_at, status, payment_made, created_at, updated_at) FROM stdin;
 1	1	4	2025-09-24 17:14:36.661329-03	2025-09-25 17:14:36.661329-03	active	\N	2025-09-24 17:12:20.6399	2025-09-24 17:14:36.708515
 2	2	4	2025-09-24 17:20:05.870961-03	2025-09-25 17:20:05.870961-03	active	\N	2025-09-24 17:19:05.961916	2025-09-24 17:20:05.88935
@@ -216,14 +214,9 @@ ALTER TABLE ONLY appwtg.promotion ADD CONSTRAINT fk_user FOREIGN KEY (user_id) R
 ALTER TABLE ONLY appwtg.wallet ADD CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES appwtg."user"(id) ON UPDATE CASCADE ON DELETE CASCADE;
 ALTER TABLE ONLY appwtg.user_plan ADD CONSTRAINT user_plan_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES appwtg.plan(id);
 ALTER TABLE ONLY appwtg.user_plan ADD CONSTRAINT user_plan_user_id_fkey FOREIGN KEY (user_id) REFERENCES appwtg."user"(id);
--- 3. DEFINIR A CHAVE PRIMÁRIA
-ALTER TABLE ONLY appwtg.promotion_image
-    ADD CONSTRAINT promotion_image_pkey PRIMARY KEY (id);
--- 4. CRIAR A RELAÇÃO (CHAVE ESTRANGEIRA)
-ALTER TABLE ONLY appwtg.promotion_image
-    ADD CONSTRAINT fk_promotion_image_promotion FOREIGN KEY (promotion_id) REFERENCES appwtg.promotion(id) ON DELETE CASCADE;
+ALTER TABLE ONLY appwtg.promotion_image ADD CONSTRAINT promotion_image_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY appwtg.promotion_image ADD CONSTRAINT fk_promotion_image_promotion FOREIGN KEY (promotion_id) REFERENCES appwtg.promotion(id) ON DELETE CASCADE;
 
--- Fim do bloco a ser adicionado
 -- Bloco CORRIGIDO para Sincronizar TODAS as sequências
 DO $$
 DECLARE
@@ -231,10 +224,7 @@ DECLARE
     tableName TEXT;
 BEGIN
     FOR r IN (SELECT relname FROM pg_class WHERE relkind = 'S' AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'appwtg')) LOOP
-        -- Lógica para encontrar o nome da tabela a partir do nome da sequência
         tableName := REPLACE(r.relname, '_id_seq', '');
-
-        -- Citação correta do nome da tabela para segurança
         EXECUTE 'SELECT setval(''' || 'appwtg."' || r.relname || '"''' || ', (SELECT COALESCE(MAX(id), 1) FROM appwtg."' || tableName || '"), true)';
     END LOOP;
 END $$;

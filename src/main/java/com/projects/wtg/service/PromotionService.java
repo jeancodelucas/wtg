@@ -31,11 +31,10 @@ public class PromotionService {
     private final PlanRepository planRepository;
     private final S3Service s3Service;
     private final PromotionImageRepository promotionImageRepository;
-    private final GeocodingService geocodingService;
 
-    // --- CORREÇÃO APLICADA AQUI ---
-    // O construtor foi atualizado para receber TODAS as dependências, incluindo GeocodingService.
-    public PromotionService(PromotionRepository promotionRepository, AccountRepository accountRepository, UserPlanRepository userPlanRepository, UserRepository userRepository, PlanRepository planRepository, S3Service s3Service, PromotionImageRepository promotionImageRepository, GeocodingService geocodingService) {
+    private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
+
+    public PromotionService(PromotionRepository promotionRepository, AccountRepository accountRepository, UserPlanRepository userPlanRepository, UserRepository userRepository, PlanRepository planRepository, S3Service s3Service, PromotionImageRepository promotionImageRepository) {
         this.promotionRepository = promotionRepository;
         this.accountRepository = accountRepository;
         this.userPlanRepository = userPlanRepository;
@@ -43,28 +42,80 @@ public class PromotionService {
         this.planRepository = planRepository;
         this.s3Service = s3Service;
         this.promotionImageRepository = promotionImageRepository;
-        this.geocodingService = geocodingService; // Agora esta linha funciona corretamente.
     }
 
+    // --- MÉTODO CORRIGIDO ---
     @Transactional
-    public User createPromotion(CreatePromotionRequestDto dto, String userEmail) {
-        Account account = accountRepository.findByEmailWithUserAndPlans(userEmail)
+    public Promotion createPromotion(CreatePromotionRequestDto dto, String userEmail) {
+        User user = accountRepository.findByEmailWithUserAndPlans(userEmail)
+                .map(Account::getUser)
                 .orElseThrow(() -> new UsernameNotFoundException("Utilizador não encontrado."));
-        User user = account.getUser();
 
         if (user.getPromotions() != null && !user.getPromotions().isEmpty()) {
             throw new PromotionAlreadyExistsException("Não é possível criar um novo evento, pois já existe um evento vinculado a este utilizador.");
         }
 
         Promotion promotion = buildPromotionFromDto(dto);
-        if (dto.getLatitude() != null && dto.getLongitude() != null) {
-            GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-            Point point = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
-            promotion.setPoint(point);
-        }
+        promotion.setUser(user);
+
+        // --- LÓGICA DA FLAG: SEMPRE INICIA COMO INCOMPLETO ---
+        promotion.setFree(false);
+
         handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
-        user.addPromotion(promotion);
-        return userRepository.save(user);
+
+        // Salva e retorna a promoção com o ID gerado
+        return promotionRepository.save(promotion);
+    }
+
+    @Transactional
+    public Promotion completePromotion(Long promotionId, String userEmail) {
+        User user = userRepository.findByAccountEmail(userEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
+
+        Promotion promotion = promotionRepository.findByIdAndUser(promotionId, user)
+                .orElseThrow(() -> new EntityNotFoundException("Promoção não encontrada ou não pertence a este usuário."));
+
+        if (promotion.getImages() == null || promotion.getImages().isEmpty()) {
+            throw new IllegalStateException("Não é possível completar o cadastro sem enviar ao menos uma imagem.");
+        }
+
+        if (promotion.getAddress() == null) {
+            throw new IllegalStateException("Não é possível completar o cadastro sem dados de endereço.");
+        }
+
+        if (promotion.getPoint() == null) {
+            throw new IllegalStateException("Não é possível completar o cadastro sem dados de geolocalização. Confirme o endereço no mapa.");
+        }
+
+        promotion.setFree(true); // Define a flag como 'true' para indicar cadastro completo
+        return promotionRepository.save(promotion);
+    }
+
+    private Promotion buildPromotionFromDto(CreatePromotionRequestDto dto) {
+        Promotion promotion = new Promotion();
+        promotion.setTitle(dto.getTitle());
+        promotion.setDescription(dto.getDescription());
+        promotion.setFree(dto.isFree());
+        promotion.setObs(dto.getObs());
+        promotion.setPromotionType(dto.getPromotionType());
+
+        Address address = new Address();
+        if (dto.getAddress() != null) {
+            address.setAddress(dto.getAddress().getAddress());
+            address.setNumber(dto.getAddress().getNumber());
+            address.setComplement(dto.getAddress().getComplement());
+            address.setReference(dto.getAddress().getReference());
+            address.setPostalCode(dto.getAddress().getPostalCode());
+            address.setObs(dto.getAddress().getObs());
+        }
+        promotion.setAddress(address);
+
+        if (dto.getLatitude() != null && dto.getLongitude() != null) {
+            Point promotionPoint = geometryFactory.createPoint(new Coordinate(dto.getLongitude(), dto.getLatitude()));
+            promotion.setPoint(promotionPoint);
+        }
+
+        return promotion;
     }
 
     @Transactional
@@ -112,7 +163,6 @@ public class PromotionService {
         List<Long> idsInRadius = null;
 
         if (hasGeoFilter) {
-            GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
             Point userLocation = geometryFactory.createPoint(new Coordinate(longitude, latitude));
             double radiusInMeters = radius * 1000;
 
@@ -156,7 +206,7 @@ public class PromotionService {
                 }
 
                 UserPlan futurePlan = new UserPlan();
-                futurePlan.setId(new UserPlanId(null, planToAssign.getId()));
+                futurePlan.setId(new UserPlanId(user.getId(), planToAssign.getId()));
                 futurePlan.setUser(user);
                 futurePlan.setPlan(planToAssign);
                 futurePlan.setStartedAt(currentActivePlan.getFinishAt());
@@ -198,7 +248,7 @@ public class PromotionService {
 
     private UserPlan createNewUserPlan(User user, Plan plan, LocalDateTime now) {
         UserPlan newUserPlan = UserPlan.builder()
-                .id(new UserPlanId(null, plan.getId()))
+                .id(new UserPlanId(user.getId(), plan.getId()))
                 .user(user)
                 .plan(plan)
                 .planStatus(PlanStatus.ACTIVE)
@@ -227,25 +277,6 @@ public class PromotionService {
             default:
                 break;
         }
-    }
-
-    private Promotion buildPromotionFromDto(CreatePromotionRequestDto dto) {
-        Promotion promotion = new Promotion();
-        promotion.setTitle(dto.getTitle());
-        promotion.setDescription(dto.getDescription());
-        promotion.setFree(dto.isFree());
-
-        Address address = new Address();
-        if (dto.getAddress() != null) {
-            address.setAddress(dto.getAddress().getAddress());
-            address.setNumber(dto.getAddress().getNumber());
-            address.setComplement(dto.getAddress().getComplement());
-            address.setReference(dto.getAddress().getReference());
-            address.setPostalCode(dto.getAddress().getPostalCode());
-            address.setObs(dto.getAddress().getObs());
-        }
-        promotion.setAddress(address);
-        return promotion;
     }
 
     private void updatePromotionFields(Promotion promotion, PromotionEditDto dto) {

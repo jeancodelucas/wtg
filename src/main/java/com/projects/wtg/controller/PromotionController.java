@@ -3,7 +3,6 @@ package com.projects.wtg.controller;
 import com.projects.wtg.dto.*;
 import com.projects.wtg.model.Promotion;
 import com.projects.wtg.model.PromotionType;
-import com.projects.wtg.model.User;
 import com.projects.wtg.service.PromotionService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.Valid;
@@ -15,7 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException; // <<< --- CORREÇÃO APLICADA AQUI ---
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,15 +28,27 @@ public class PromotionController {
         this.promotionService = promotionService;
     }
 
+    // --- ENDPOINT CORRIGIDO ---
     @PostMapping
-    public ResponseEntity<UserDto> createPromotion(
+    @ResponseStatus(HttpStatus.CREATED)
+    public ResponseEntity<PromotionDto> createPromotion(
             @Valid @RequestBody CreatePromotionRequestDto promotionRequestDto,
             Authentication authentication) {
 
         String userEmail = authentication.getName();
-        User updatedUser = promotionService.createPromotion(promotionRequestDto, userEmail);
+        Promotion createdPromotion = promotionService.createPromotion(promotionRequestDto, userEmail);
+        return new ResponseEntity<>(new PromotionDto(createdPromotion), HttpStatus.CREATED);
+    }
 
-        return new ResponseEntity<>(new UserDto(updatedUser), HttpStatus.CREATED);
+    // --- NOVO ENDPOINT PARA FINALIZAR O CADASTRO ---
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<PromotionDto> completePromotion(
+            @PathVariable Long id,
+            Authentication authentication) {
+
+        String userEmail = authentication.getName();
+        Promotion completedPromotion = promotionService.completePromotion(id, userEmail);
+        return ResponseEntity.ok(new PromotionDto(completedPromotion));
     }
 
     @PutMapping("/{id}/edit")
@@ -52,15 +63,6 @@ public class PromotionController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Endpoint para buscar promoções com base em filtros dinâmicos.
-     * Os parâmetros são opcionais e podem ser combinados.
-     * @param promotionType Tipo da promoção (ex: FESTA, SHOW).
-     * @param latitude Latitude do ponto de busca.
-     * @param longitude Longitude do ponto de busca.
-     * @param radius Raio da busca em quilômetros.
-     * @return Uma lista de promoções que correspondem aos filtros.
-     */
     @GetMapping("/filter")
     public ResponseEntity<List<PromotionDto>> getPromotionsByFilter(
             @RequestParam(required = false) PromotionType promotionType,
@@ -112,7 +114,7 @@ public class PromotionController {
         try {
             String userEmail = authentication.getName();
             promotionService.deleteImage(imageId, userEmail);
-            return ResponseEntity.noContent().build(); // Retorna 204 No Content
+            return ResponseEntity.noContent().build();
         } catch (AccessDeniedException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (EntityNotFoundException e) {
