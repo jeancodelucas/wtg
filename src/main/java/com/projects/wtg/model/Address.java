@@ -24,6 +24,9 @@ public class Address {
     private String complement;
     private String obs;
     private String reference;
+    private String state;
+    private String city;
+    private String UF;
 
     @Column(name = "postal_code")
     private String postalCode;

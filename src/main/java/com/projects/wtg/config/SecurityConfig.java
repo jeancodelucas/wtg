@@ -65,7 +65,7 @@ public class SecurityConfig {
                                 "/api/auth/google",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
-                                //"/api/geocoding/from-address",
+                                "/api/geocoding/from-address",
                                 "/error"
                         ).permitAll()
                         .requestMatchers("/api/comments/**").authenticated()

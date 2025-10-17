@@ -39,11 +39,28 @@ public class GeocodingService {
         if (address == null || address.getAddress() == null || address.getNumber() == null) {
             return Optional.empty();
         }
+        StringBuilder addressBuilder = new StringBuilder();
+        addressBuilder.append(address.getAddress()).append(", ").append(address.getNumber());
 
+        // Adiciona a cidade se ela foi preenchida
+        if (address.getCity() != null && !address.getCity().isBlank()) {
+            addressBuilder.append(", ").append(address.getCity());
+        }
+
+        // Adiciona o estado (UF) se ele foi preenchido
+        if (address.getUF() != null && !address.getUF().isBlank()) {
+            addressBuilder.append(" - ").append(address.getUF());
+        }
+
+        // Adiciona o CEP se ele foi preenchido
+        if (address.getPostalCode() != null && !address.getPostalCode().isBlank()) {
+            addressBuilder.append(", ").append(address.getPostalCode());
+        }
+
+        addressBuilder.append(", Brasil");
+
+        String addressString = addressBuilder.toString();
         // Monta a string de endereço. Adicionar cidade e estado no futuro melhorará a precisão.
-        String addressString = String.format("%s, %d, Recife, PE, Brasil",
-                address.getAddress(),
-                address.getNumber());
 
         try {
             GeocodingResult[] results = GeocodingApi.geocode(context, addressString).await();

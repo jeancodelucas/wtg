@@ -344,14 +344,35 @@ public class UserService {
         if (optionalAccount.isPresent()) {
             account = optionalAccount.get();
         } else {
+            // Lógica para criar um novo usuário SSO
             User user = new User();
-            user.setFirstName((String) payload.get("given_name"));
-            user.setFullName((String) payload.get("family_name"));
+
+            String fullName = (String) payload.get("name");
+            String givenName = (String) payload.get("given_name");
+
+            // --- CORREÇÃO APLICADA AQUI ---
+            // Garante que o fullName nunca seja nulo
+            if (fullName != null && !fullName.isBlank()) {
+                user.setFullName(fullName);
+            } else {
+                // Fallback: usa a parte do e-mail antes do @, se o nome não vier
+                user.setFullName(email.split("@")[0]);
+            }
+
+            // Garante que o firstName nunca seja nulo
+            if (givenName != null && !givenName.isBlank()) {
+                user.setFirstName(givenName);
+            } else {
+                // Fallback: usa a primeira palavra do nome completo
+                user.setFirstName(user.getFullName().split(" ")[0]);
+            }
+            // --- FIM DA CORREÇÃO ---
+
             user.setPictureUrl((String) payload.get("picture"));
 
             account = new Account();
             account.setEmail(email);
-            account.setUserName(email);
+            account.setUserName(email); // Pode usar o e-mail como username inicial
             account.setLoginProvider("google");
             account.setActive(true);
             user.setAccount(account);

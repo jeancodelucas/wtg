@@ -12,6 +12,10 @@ public class AddressDto {
     @NotBlank(message = "O campo 'address' não pode estar em branco")
     private String address;
 
+    private String state;
+    private String city;
+    private String UF;
+
     @NotNull(message = "O campo 'number' é obrigatório")
     private Integer number;
 
