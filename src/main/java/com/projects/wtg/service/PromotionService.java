@@ -367,4 +367,13 @@ public class PromotionService {
         s3Service.deleteFile(image.getS3Key());
         promotionImageRepository.delete(image);
     }
+
+    @Transactional(readOnly = true)
+    public PromotionDto getPromotionByUser(String userEmail) {
+        User user = userRepository.findByAccountEmail(userEmail)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuário não encontrado."));
+        Promotion promotion = promotionRepository.findByUser(user)
+                .orElseThrow(() -> new EntityNotFoundException("Nenhuma promoção encontrada para este usuário."));
+        return new PromotionDto(promotion);
+    }
 }

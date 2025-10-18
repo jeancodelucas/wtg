@@ -36,4 +36,6 @@ public interface PromotionRepository extends JpaRepository<Promotion, Long>, Jpa
             @Param("userLocation") Point userLocation,
             @Param("radiusInMeters") double radiusInMeters
     );
+
+    Optional<Promotion> findByUser(User user);
 }

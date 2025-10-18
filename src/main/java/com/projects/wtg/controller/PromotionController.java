@@ -121,4 +121,11 @@ public class PromotionController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    @GetMapping("/my-promotion")
+    public ResponseEntity<PromotionDto> getMyPromotion(Authentication authentication) {
+        String userEmail = authentication.getName();
+        PromotionDto promotionDto = promotionService.getPromotionByUser(userEmail);
+        return ResponseEntity.ok(promotionDto);
+    }
 }
