@@ -15,7 +15,7 @@ public class PromotionDto {
     private Long id;
     private String title;
     private String description;
-    private boolean free;
+    private boolean completeRegistration;
     private String obs;
     private Boolean active;
     private AddressDto address;
@@ -27,7 +27,7 @@ public class PromotionDto {
     public PromotionDto(Promotion promotion) {
         this.title = promotion.getTitle();
         this.description = promotion.getDescription();
-        this.free = promotion.isFree();
+        this.completeRegistration = promotion.isCompleteRegistration();
         this.obs = promotion.getObs();
         this.active = promotion.getActive();
         this.promotionType = promotion.getPromotionType();

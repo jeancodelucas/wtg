@@ -18,7 +18,7 @@ public class PromotionDataDto {
     @NotNull(message = "O campo 'active' é obrigatório")
     private Boolean active;
 
-    private boolean free;
+    private boolean completeRegistration;
     private String obs;
 
     @Valid

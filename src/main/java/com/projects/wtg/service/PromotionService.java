@@ -59,7 +59,7 @@ public class PromotionService {
         promotion.setUser(user);
 
         // --- LÓGICA DA FLAG: SEMPRE INICIA COMO INCOMPLETO ---
-        promotion.setFree(false);
+        promotion.setCompleteRegistration(false);
 
         handlePromotionActivation(user, promotion, dto.getActive(), dto.getPlanId());
 
@@ -87,7 +87,7 @@ public class PromotionService {
             throw new IllegalStateException("Não é possível completar o cadastro sem dados de geolocalização. Confirme o endereço no mapa.");
         }
 
-        promotion.setFree(true); // Define a flag como 'true' para indicar cadastro completo
+        promotion.setCompleteRegistration(true); // Define a flag como 'true' para indicar cadastro completo
         return promotionRepository.save(promotion);
     }
 
@@ -95,7 +95,7 @@ public class PromotionService {
         Promotion promotion = new Promotion();
         promotion.setTitle(dto.getTitle());
         promotion.setDescription(dto.getDescription());
-        promotion.setFree(dto.isFree());
+        promotion.setCompleteRegistration(dto.isFree());
         promotion.setObs(dto.getObs());
         promotion.setPromotionType(dto.getPromotionType());
 
@@ -282,7 +282,7 @@ public class PromotionService {
     private void updatePromotionFields(Promotion promotion, PromotionEditDto dto) {
         promotion.setTitle(dto.getTitle());
         promotion.setDescription(dto.getDescription());
-        promotion.setFree(dto.isFree());
+        promotion.setCompleteRegistration(dto.isCompleteRegistration());
         promotion.setObs(dto.getObs());
 
         if (dto.getAddress() != null) {

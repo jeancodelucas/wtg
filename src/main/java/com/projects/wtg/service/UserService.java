@@ -245,7 +245,7 @@ public class UserService {
         Promotion promotion = new Promotion();
         promotion.setTitle(dto.getTitle());
         promotion.setDescription(dto.getDescription());
-        promotion.setFree(dto.isFree());
+        promotion.setCompleteRegistration(dto.isCompleteRegistration());
         promotion.setObs(dto.getObs());
         promotion.setActive(dto.getActive());
 

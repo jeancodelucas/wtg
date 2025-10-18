@@ -29,7 +29,7 @@ public class Promotion {
 
     private String title;
     private String description;
-    private boolean free;
+    private boolean completeRegistration;
     private String obs;
     private boolean highlight;
 
